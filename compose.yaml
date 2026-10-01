@@ -1,22 +1,27 @@
+name: cowork-booking-access
+
 services:
   db:
     image: postgres:16
+    container_name: cowork-booking-access-db
     environment:
-      POSTGRES_USER: spacey
-      POSTGRES_PASSWORD: spacey
-      POSTGRES_DB: spacey
+      POSTGRES_USER: access
+      POSTGRES_PASSWORD: access
+      POSTGRES_DB: access
     ports:
-      - "5433:5432"
+      - "5443:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
 
   app:
     build: .
+    image: cowork-booking-access
+    container_name: cowork-booking-access-app
     environment:
       APP_REVISION: compose
-      DATABASE_URL: postgresql://spacey:spacey@db:5432/spacey
+      DATABASE_URL: postgresql://access:access@db:5432/access
     ports:
-      - "8000:8000"
+      - "8003:8000"
     depends_on:
       - db
 

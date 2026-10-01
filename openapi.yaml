@@ -1,732 +1,569 @@
 openapi: 3.0.3
 info:
-  title: Spacey API
-  description: >
-    A space booking system: find a space, book it, pay once or subscribe,
-    and get access through a mocked lock.
-
-
-    This document covers the JSON API only. A few routes render HTML pages
-    for a browser instead (the space list at `/`, the booking form's target
-    `POST /spaces/{spaceId}/book`, the booking confirmation page and its
-    Pay/Unlock buttons, and `/dashboard`) and are not listed here.
-  version: "1.0"
+  title: Cowork Booking Access API
+  version: contract-v1-draft
+  description: |
+    Provider Access, consumer Purchase. State proposed (M2 draft).
+    Contract text: ../purchase-access.md. Rules AXS-R01 to AXS-R19.
+    Natural key booking_reference for issue and revoke (no Idempotency-Key header).
+    Errors: {"error": {"code": "...", "message": "..."}}.
+    The lock is mocked: a stored grant or a checked_in state is not proof a door opened.
 servers:
-  - url: /
-    description: Same host the app is running on (local, container, or the deployed URL).
-
+  - url: http://access:8000
+    description: Internal URL used by Purchase (ACCESS_INTERNAL_URL)
+  - url: http://localhost:8003
+    description: Public URL for the browser and the kiosk (PUBLIC_URL)
 tags:
-  - name: spaces
-  - name: bookings
-  - name: members
-  - name: accounts
-    description: Registration and login. See issue #120.
-  - name: operations
-    description: Health and business metrics.
-
+  - name: api
+    description: JSON API, bearer ACCESS_API_TOKEN, Purchase only
+  - name: e-ticket
+    description: View-only bearer link for the Member's browser
+  - name: kiosk
+    description: Staff check-in page, HTTP Basic
+  - name: ops
+    description: Health and the test clock
 paths:
-  /health:
-    get:
-      tags: [operations]
-      summary: Check the app and database are reachable.
-      responses:
-        "200":
-          description: Healthy.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status: { type: string, enum: [ok] }
-                  revision:
-                    type: string
-                    description: The `APP_REVISION` environment variable, or `local` if unset.
-                required: [status, revision]
-        "503":
-          description: The database is unreachable.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status: { type: string, enum: [error] }
-                  error: { type: string, example: database unreachable }
-                required: [status, error]
-
-  /spaces:
-    get:
-      tags: [spaces]
-      summary: List every space.
-      description: >
-        `available` normally reflects this exact instant. Pass `start_time`
-        and `end_time` together to check availability for a specific window
-        instead - the same back-to-back-is-fine overlap rule booking uses.
-      parameters:
-        - $ref: "#/components/parameters/StartTime"
-        - $ref: "#/components/parameters/EndTime"
-      responses:
-        "200":
-          description: The full space list.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  spaces:
-                    type: array
-                    items: { $ref: "#/components/schemas/Space" }
-                required: [spaces]
-        "400":
-          $ref: "#/components/responses/BadWindow"
+  /grants:
     post:
-      tags: [spaces]
-      summary: Create a space.
+      tags: [api]
+      operationId: issueGrant
+      summary: Issue the grant for one confirmed booking (repeat returns the stored grant)
+      description: |
+        Order of checks: token (401), fields (400), then by booking_reference:
+        revoked grant or tombstone (200 revoked, nothing issued), existing grant
+        (200 unchanged, body ignored), new grant (201).
+        Rules AXS-R01, AXS-R02, AXS-R03, AXS-R04, AXS-R05, AXS-R06.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name: { type: string, example: Meeting Room A }
-                capacity:
-                  type: integer
-                  minimum: 1
-                  example: 6
-                price_cents:
-                  type: integer
-                  minimum: 0
-                  default: 0
-                  description: >
-                    Per-hour rate. A booking is charged this rate times the
-                    hours booked, rounded to whole cents.
-                  example: 1500
-              required: [name, capacity]
+              $ref: '#/components/schemas/GrantCreate'
+            examples:
+              paid_booking:
+                value:
+                  booking_reference: BK-7KQ2M9
+                  member_ref: '17'
+                  space_id: 1
+                  space_name: Meeting Room A
+                  valid_from: '2026-10-07T09:00:00+07:00'
+                  valid_until: '2026-10-07T10:30:00+07:00'
+              plan_booking_no_payment:
+                summary: Coverage skips collection; same request shape, no price or coverage
+                value:
+                  booking_reference: BK-3MZ8QT
+                  member_ref: '18'
+                  space_id: 1
+                  space_name: Meeting Room A
+                  valid_from: '2026-10-07T10:30:00+07:00'
+                  valid_until: '2026-10-07T11:30:00+07:00'
+              naive_window:
+                summary: Invalid on purpose, valid_from has no offset; answers 400 invalid_request
+                value:
+                  booking_reference: BK-7KQ2M9
+                  member_ref: '17'
+                  space_id: 1
+                  space_name: Meeting Room A
+                  valid_from: '2026-10-07T09:00:00'
+                  valid_until: '2026-10-07T10:30:00+07:00'
       responses:
-        "201":
-          description: Created.
+        '201':
+          description: New grant, status issued
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id: { type: integer, example: 1 }
-                  name: { type: string }
-                  capacity: { type: integer }
-                  price_cents: { type: integer }
-                required: [id, name, capacity, price_cents]
-        "400":
-          description: >
-            `name and capacity are required` (either is missing), `name must
-            not be empty`, `capacity must be a whole number of at least 1`,
-            or `price_cents must be a non-negative integer`.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-
-  /spaces/{spaceId}:
-    parameters:
-      - $ref: "#/components/parameters/SpaceId"
-    get:
-      tags: [spaces]
-      summary: Get one space.
-      description: Same availability rule as `GET /spaces` - pass a window, or omit both params for "right now".
-      parameters:
-        - $ref: "#/components/parameters/StartTime"
-        - $ref: "#/components/parameters/EndTime"
-      responses:
-        "200":
-          description: The space.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Space" }
-        "400":
-          $ref: "#/components/responses/BadWindow"
-        "404":
-          $ref: "#/components/responses/SpaceNotFound"
-    patch:
-      tags: [spaces]
-      summary: Update a space.
-      description: >
-        Only the fields present in the body are changed; everything else
-        keeps its current value. Changing the price does not affect
-        bookings already made at the old price (see `amount_cents` on a
-        booking).
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name: { type: string }
-                capacity: { type: integer, minimum: 1 }
-                price_cents: { type: integer, minimum: 0 }
-              minProperties: 1
-              example: { price_cents: 2000 }
-      responses:
-        "200":
-          description: The updated space.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Space" }
-        "400":
-          description: >
-            `provide name, capacity and/or price_cents to update` (empty
-            body), or the same per-field messages as `POST /spaces`.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-        "404":
-          $ref: "#/components/responses/SpaceNotFound"
-    delete:
-      tags: [spaces]
-      summary: Delete a space.
-      description: Refused while the space has any bookings, past or present - cancel them first.
-      responses:
-        "204":
-          description: Deleted.
-        "404":
-          $ref: "#/components/responses/SpaceNotFound"
-        "409":
-          description: The space still has bookings.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-              example: { error: "space has bookings, cancel them first" }
-
-  /spaces/{spaceId}/bookings:
-    parameters:
-      - $ref: "#/components/parameters/SpaceId"
-    get:
-      tags: [bookings]
-      summary: List a space's bookings.
-      responses:
-        "200":
-          description: That space's bookings, earliest first.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BookingList" }
-        "404":
-          $ref: "#/components/responses/SpaceNotFound"
-    post:
-      tags: [bookings]
-      summary: Book a space.
-      description: >
-        Unpaid on creation, unless `member` has an active subscription (see
-        `POST /members/{name}/subscribe`), in which case it is created
-        already paid and costs nothing extra. A later `POST
-        /bookings/{bookingId}/pay` is needed otherwise, before `.../unlock`
-        will work.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                member:
-                  type: string
-                  default: guest
-                  description: >
-                    Defaults to `guest` if omitted - there is no
-                    requirement yet that a real name is given (issue #22).
-                  example: member-a
-                start_time:
-                  type: string
-                  format: date-time
-                  description: ISO 8601 with a timezone.
-                  example: "2026-09-25T09:00:00Z"
-                end_time:
-                  type: string
-                  format: date-time
-                  example: "2026-09-25T10:00:00Z"
-                party_size:
-                  type: integer
-                  minimum: 1
-                  default: 1
-                  description: Must not exceed the space's capacity.
-              required: [start_time, end_time]
-      responses:
-        "201":
-          description: Booked.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Booking" }
-        "400":
-          description: >
-            `start_time and end_time are required (ISO 8601 with
-            timezone)`, `end_time must be after start_time`, `party_size
-            must be a whole number of at least 1`, or `party_size {n}
-            exceeds this space's capacity of {capacity}`.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-        "404":
-          $ref: "#/components/responses/SpaceNotFound"
-        "409":
-          description: The space is already booked for an overlapping time.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-              example: { error: "space is already booked for that time" }
-
-  /bookings:
-    get:
-      tags: [bookings]
-      summary: List every booking, across all spaces.
-      responses:
-        "200":
-          description: Every booking, earliest first.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BookingList" }
-
-  /bookings/{bookingId}:
-    parameters:
-      - $ref: "#/components/parameters/BookingId"
-    get:
-      tags: [bookings]
-      summary: Get one booking.
-      responses:
-        "200":
-          description: The booking.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Booking" }
-        "404":
-          $ref: "#/components/responses/BookingNotFound"
-    delete:
-      tags: [bookings]
-      summary: Cancel a booking.
-      description: >
-        Deletes the booking outright, whether or not it was paid - there is
-        no cancelled/refunded record kept yet (see issue #82).
-      responses:
-        "200":
-          description: The booking as it was just before it was deleted.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Booking" }
-        "404":
-          $ref: "#/components/responses/BookingNotFound"
-
-  /bookings/{bookingId}/pay:
-    post:
-      tags: [bookings]
-      summary: Pay for a booking (mocked).
-      description: >
-        No real payment provider or network - card details are checked for
-        shape only (right length, digits only, expiry not in the past),
-        not a real Luhn/network check (see issue #119). Only the card's
-        last 4 digits are ever stored or returned; the full number and CVC
-        are never persisted. Paying an already-paid booking is a no-op
-        (no card required for that retry), so a retried request can't
-        charge twice. Pass `force_failure: true` with a still-valid card
-        to make this attempt fail on purpose, for testing the failure
-        path - the booking is left unpaid.
-      parameters:
-        - $ref: "#/components/parameters/BookingId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                card_number:
-                  type: string
-                  description: Digits only, 13-19 characters.
-                  example: "4242424242424242"
-                expiry:
-                  type: string
-                  description: MM/YY, must not be in the past.
-                  example: "12/30"
-                cvc:
-                  type: string
-                  description: Digits only, 3-4 characters.
-                  example: "123"
-                force_failure:
-                  type: boolean
-                  default: false
-              required: [card_number, expiry, cvc]
-      responses:
-        "200":
-          description: Paid (or already was).
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Booking" }
-        "400":
-          description: >
-            `card_number must be 13-19 digits`, `cvc must be 3 or 4
-            digits`, `expiry must be in MM/YY format`, or `card has
-            expired`. Not returned when the booking is already paid.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-        "402":
-          description: Payment failed (only when `force_failure` was set).
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-              example: { error: payment failed }
-        "404":
-          $ref: "#/components/responses/BookingNotFound"
-
-  /bookings/{bookingId}/unlock:
-    post:
-      tags: [bookings]
-      summary: Get an access code for a paid booking (mocked lock).
-      parameters:
-        - $ref: "#/components/parameters/BookingId"
-      responses:
-        "200":
-          description: Unlocked.
+                $ref: '#/components/schemas/Grant'
+              examples:
+                issued:
+                  $ref: '#/components/examples/GrantIssued'
+                plan_booking:
+                  $ref: '#/components/examples/GrantPlanIssued'
+        '200':
+          description: Repeat (the stored grant, unchanged) or a revoked reference (status revoked, nothing issued)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  booking_id: { type: integer }
-                  access_code:
-                    type: string
-                    description: A random 8-character hex code. Not a real lock integration.
-                    example: 2847cae6
-                required: [booking_id, access_code]
-        "402":
-          description: The booking is not paid yet.
+                $ref: '#/components/schemas/Grant'
+              examples:
+                repeat:
+                  $ref: '#/components/examples/GrantIssued'
+                tombstone:
+                  $ref: '#/components/examples/GrantTombstone'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /grants/{booking_reference}:
+    get:
+      tags: [api]
+      operationId: getGrant
+      summary: Read one grant with its derived condition (Purchase does not call it in v1)
+      description: Rules AXS-R02, AXS-R04, AXS-R05, AXS-R08, AXS-R16.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BookingReference'
+      responses:
+        '200':
+          description: A grant or a tombstone (a tombstone is 200 revoked, never 404)
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-              example: { error: booking is not paid }
-        "404":
-          $ref: "#/components/responses/BookingNotFound"
-
-  /members/{name}/subscribe:
+              schema:
+                $ref: '#/components/schemas/Grant'
+              examples:
+                issued:
+                  $ref: '#/components/examples/GrantIssued'
+                no_show:
+                  $ref: '#/components/examples/GrantNoShow'
+                revoked:
+                  $ref: '#/components/examples/GrantRevoked'
+                tombstone:
+                  $ref: '#/components/examples/GrantTombstone'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No grant and no tombstone for the reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: not_found
+                  message: grant not found
+  /grants/{booking_reference}/revoke:
     post:
-      tags: [members]
-      summary: Subscribe a member (mocked).
-      description: >
-        No real provider and no price yet (see issue #112). Subscribing
-        again is a no-op: `started_at` does not change. The name is matched
-        trimmed and lower-cased, so "Member A" and " member-a " are the same
-        subscriber. While active, every booking that member makes is
-        created already paid, at no extra charge.
+      tags: [api]
+      operationId: revokeGrant
+      summary: Revoke the grant (idempotent; an unknown reference gets a revoked tombstone)
+      description: |
+        No request body. Revoke changes nothing outside Access and implies no refund.
+        Rules AXS-R02, AXS-R04, AXS-R16, AXS-R17.
+      security:
+        - bearerAuth: []
       parameters:
-        - name: name
+        - $ref: '#/components/parameters/BookingReference'
+      responses:
+        '200':
+          description: status revoked; a repeat changes nothing (revoked_at unchanged)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Grant'
+              examples:
+                revoked:
+                  $ref: '#/components/examples/GrantRevoked'
+                tombstone:
+                  $ref: '#/components/examples/GrantTombstone'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /t/{ticket_token}:
+    get:
+      tags: [e-ticket]
+      operationId: showTicket
+      security: []
+      summary: E-ticket (view-only bearer link, no login)
+      description: |
+        Markers: element data-ticket-code="H7K3-9QXA" (the large code) and
+        element data-status="issued" (stored state: issued, checked_in or revoked).
+        QR (inline SVG, segno) encodes exactly the code. Referrer-Policy no-referrer.
+        Rules AXS-R05, AXS-R07, AXS-R08, AXS-R09, AXS-R10.
+      parameters:
+        - name: ticket_token
           in: path
           required: true
-          schema: { type: string }
-          example: member-a
+          description: Issued tokens are secrets.token_urlsafe(16), 22 characters matching ^[A-Za-z0-9_-]{22}$; any unknown value, well-formed or not, gets 404, never 400 (no pattern here on purpose)
+          schema:
+            type: string
+          example: q3Vt9XbLk2Rm8PzW4nHc7A
       responses:
-        "200":
-          description: Subscribed (or already was).
-          content:
-            application/json:
+        '200':
+          description: The e-ticket; a CANCELLED overlay when revoked
+          headers:
+            Referrer-Policy:
               schema:
-                type: object
-                properties:
-                  member:
-                    type: string
-                    description: Trimmed and lower-cased.
-                    example: member-a
-                  active: { type: boolean, example: true }
-                  started_at: { type: string, format: date-time }
-                required: [member, active, started_at]
-        "400":
-          description: The name is blank after trimming.
+                type: string
+              example: no-referrer
           content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-              example: { error: "member name must not be blank" }
-
-  /register:
-    post:
-      tags: [accounts]
-      summary: Create an account.
-      description: >
-        Also available as a plain HTML form at GET /register, for a browser.
-        Email is matched trimmed and lower-cased, and must be unique. The
-        password is hashed (werkzeug.security) and never stored or returned
-        as plain text.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                email: { type: string, format: email, example: a@example.com }
-                password:
-                  type: string
-                  minLength: 8
-                  example: hunter22
-              required: [email, password]
-      responses:
-        "201":
-          description: Registered.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/User" }
-        "400":
-          description: >
-            enter a valid email address, or password must be at least 8
-            characters.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-        "409":
-          description: That email is already registered.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-              example: { error: "email is already registered" }
-
-  /login:
-    post:
-      tags: [accounts]
-      summary: Start a session.
-      description: >
-        Also available as a plain HTML form at GET /login. A wrong password
-        and an unknown email return the identical error, so a login attempt
-        can't be used to find out which emails are registered.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                email: { type: string, format: email }
-                password: { type: string }
-              required: [email, password]
-      responses:
-        "200":
-          description: Logged in.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/User" }
-        "401":
-          description: Wrong password, or no account with that email.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-              example: { error: "invalid email or password" }
-
-  /logout:
-    post:
-      tags: [accounts]
-      summary: End the session.
-      description: Idempotent - logging out when already logged out does nothing.
-      responses:
-        "200":
-          description: Logged out (or already was).
-          content:
-            application/json:
+            text/html:
               schema:
-                type: object
-                properties:
-                  status: { type: string, example: ok }
-
-  /metrics:
+                type: string
+              example: '<span data-status="issued">Issued</span><p data-ticket-code="H7K3-9QXA">H7K3-9QXA</p>'
+        '404':
+          description: Unknown token; no hint whether any ticket exists
+          content:
+            text/html:
+              schema:
+                type: string
+  /checkin:
     get:
-      tags: [operations]
-      summary: Business metrics, as JSON.
-      description: The same numbers shown on `/dashboard`, for machine consumption.
+      tags: [kiosk]
+      operationId: showKiosk
+      summary: Kiosk page with the room list, the code input, the last result and the last 10 scans
+      description: |
+        After a scan the flashed result element is data-result="ok" (or not_open_yet, closed,
+        revoked, wrong_room, unknown_code), shown once; only that element carries data-result.
+        The kiosk carries data-selected-space-id; each of the last 10 scan rows carries
+        data-scan-result and data-scan-last4, newest first by scan time, then scan id.
+        Each room is labelled with its space_name and room number, "Meeting Room A (room 1)", listed by space_id ascending.
+        With no grant stored: "No rooms yet: a room appears after its first ticket is issued"
+        and no code input. Rules AXS-R11, AXS-R14, AXS-R15.
+      security:
+        - basicAuth: []
       responses:
-        "200":
-          description: Current totals.
+        '200':
+          description: Kiosk page
+          content:
+            text/html:
+              schema:
+                type: string
+              example: '<div data-result="ok">Door unlocked (mock)</div>'
+        '401':
+          $ref: '#/components/responses/BasicChallenge'
+    post:
+      tags: [kiosk]
+      operationId: postKiosk
+      summary: Select the room (space_id, no code) or scan a code at the selected room
+      description: |
+        Two POSTs: first space_id alone selects the room (stored in access_session), then
+        code alone scans at that room with the same cookie. A POST with code scans at the
+        room stored in access_session; a space_id sent with a code is ignored, so a cross-site
+        scan (no SameSite=Lax cookie) has no room and is refused ("Select the room first"). A
+        cross-site room change (space_id, no code) is possible and accepted: the browser resends
+        the cached Basic credentials (ADR-0016, AXS-R11 row 10). With no room
+        selected the flash is "Select the room first" and no scan is stored. A space_id not in
+        the room list gets "Unknown room" and the selection does not change. A code blank after
+        normalisation gets "Enter a code" and no scan is stored. Order: unknown_code, revoked,
+        wrong_room, then the window.
+        Rules AXS-R11, AXS-R12, AXS-R13, AXS-R14, AXS-R15, AXS-R16.
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                space_id:
+                  type: integer
+                  description: Selects the room when sent without code; ignored when code is present
+                  example: 1
+                code:
+                  type: string
+                  description: Upper-cased, spaces and hyphens stripped before lookup
+                  example: H7K3-9QXA
+            examples:
+              select_room:
+                value:
+                  space_id: 1
+              scan:
+                value:
+                  code: H7K3-9QXA
+      responses:
+        '303':
+          description: Redirect to /checkin, which shows the result once
+          headers:
+            Location:
+              schema:
+                type: string
+              example: /checkin
+        '401':
+          $ref: '#/components/responses/BasicChallenge'
+  /health:
+    get:
+      tags: [ops]
+      operationId: health
+      security: []
+      summary: Liveness with the deployed revision
+      responses:
+        '200':
+          description: Database reachable
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  spaces: { type: integer }
-                  bookings:
-                    type: integer
-                    description: paid_bookings + unpaid_bookings.
-                  paid_bookings: { type: integer }
-                  unpaid_bookings: { type: integer }
-                  members:
-                    type: integer
-                    description: Distinct member strings that have ever booked.
-                  revenue_cents:
-                    type: integer
-                    description: >
-                      Sum of amount_cents across paid bookings only - the
-                      price each was actually charged at booking time, not
-                      today's space price.
-                  utilization:
-                    type: number
-                    description: >
-                      Booked hours over the next 7 days as a share of
-                      available hours (spaces x 7 x 24), 0 if there are no
-                      spaces. Counts every booking regardless of paid
-                      status - this measures usage, not revenue.
-                    example: 0.15
-                  repeat_member_rate:
-                    type: number
-                    description: >
-                      Share of members (by the free-text member string,
-                      see issue #86) with more than one booking, 0 if
-                      there are no bookings.
-                    example: 0.25
-                  payment_conversion:
-                    type: number
-                    description: Share of bookings that were paid, 0 if there are no bookings.
-                    example: 0.67
-                  avg_revenue_cents_per_paid_booking:
-                    type: integer
-                    description: revenue_cents divided by paid_bookings, rounded; 0 if none are paid.
-                    example: 1500
-                  revenue_by_space:
-                    type: array
-                    description: One row per space, even one with no bookings at all.
-                    items:
-                      type: object
-                      properties:
-                        id: { type: integer }
-                        name: { type: string }
-                        revenue_cents: { type: integer }
-                      required: [id, name, revenue_cents]
-                required:
-                  [
-                    spaces, bookings, paid_bookings, unpaid_bookings, members,
-                    revenue_cents, utilization, repeat_member_rate,
-                    payment_conversion, avg_revenue_cents_per_paid_booking,
-                    revenue_by_space,
-                  ]
-
+                $ref: '#/components/schemas/Health'
+              example:
+                status: ok
+                revision: 3f9c2e1
+        '503':
+          description: Database unreachable. /health keeps the seed shape, not the standard error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: error
+                error: database unreachable
+  /_test/clock:
+    post:
+      tags: [ops]
+      operationId: setTestClock
+      security: []
+      summary: Set or clear the test clock (404 unless TEST_CLOCK_ENABLED=true)
+      description: Rule AXS-R19.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Clock'
+            examples:
+              set:
+                value:
+                  now: '2026-10-07T09:00:00+07:00'
+              clear:
+                value:
+                  now: null
+      responses:
+        '200':
+          description: Override stored (or cleared with null)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Clock'
+              example:
+                now: '2026-10-07T09:00:00+07:00'
+        '400':
+          description: A now that is not ISO 8601 with an offset; nothing stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: TEST_CLOCK_ENABLED is not exactly "true"; nothing stored. With the flag off, clock.now() never reads test_clock
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 'Authorization: Bearer <ACCESS_API_TOKEN>. Checked before validation; 401 otherwise.'
+    basicAuth:
+      type: http
+      scheme: basic
+      description: User "staff", password STAFF_PASSWORD (only the password is checked).
   parameters:
-    SpaceId:
-      name: spaceId
+    BookingReference:
+      name: booking_reference
       in: path
       required: true
-      schema: { type: integer }
-      example: 1
-    BookingId:
-      name: bookingId
-      in: path
-      required: true
-      schema: { type: integer }
-      example: 1
-    StartTime:
-      name: start_time
-      in: query
-      required: false
-      description: Required together with end_time; ISO 8601 with a timezone.
-      schema: { type: string, format: date-time }
-      example: "2026-09-25T09:00:00Z"
-    EndTime:
-      name: end_time
-      in: query
-      required: false
-      description: Required together with start_time; must be after it.
-      schema: { type: string, format: date-time }
-      example: "2026-09-25T10:00:00Z"
-
+      schema:
+        type: string
+        pattern: '^BK-[23456789ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+      example: BK-7KQ2M9
   responses:
-    SpaceNotFound:
-      description: No space with that id.
+    InvalidRequest:
+      description: A field or the path reference is invalid; the message names it; nothing stored
       content:
         application/json:
-          schema: { $ref: "#/components/schemas/Error" }
-          example: { error: "space not found" }
-    BookingNotFound:
-      description: No booking with that id.
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            naive_time:
+              value:
+                error:
+                  code: invalid_request
+                  message: valid_from needs a UTC offset
+            empty_window:
+              value:
+                error:
+                  code: invalid_request
+                  message: valid_until must be after valid_from
+            space_id_out_of_range:
+              value:
+                error:
+                  code: invalid_request
+                  message: space_id is out of range
+    Unauthorized:
+      description: No token, a wrong token or the wrong scheme; nothing changes
       content:
         application/json:
-          schema: { $ref: "#/components/schemas/Error" }
-          example: { error: "booking not found" }
-    BadWindow:
-      description: >
-        start_time/end_time were not given together, aren't valid ISO 8601
-        with a timezone, or end_time is not after start_time.
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/Error" }
+          schema:
+            $ref: '#/components/schemas/Error'
           example:
-            error: >-
-              start_time and end_time must be given together (ISO 8601 with
-              timezone, e.g. 2026-09-25T09:00:00Z)
-
+            error:
+              code: unauthorized
+              message: unauthorized
+    BasicChallenge:
+      description: Missing or wrong Staff password; no scan stored (gunicorn's access log keeps the 401 line)
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+          example: Basic realm="checkin"
   schemas:
     Error:
       type: object
-      properties:
-        error: { type: string }
       required: [error]
-
-    Space:
-      type: object
       properties:
-        id: { type: integer, example: 1 }
-        name: { type: string, example: Founders Desk }
-        capacity: { type: integer, example: 1 }
-        price_cents:
-          type: integer
-          example: 2500
-          description: Per-hour rate in cents.
-        available:
-          type: boolean
-          description: >
-            Whether the space is free right now, or for the requested
-            start_time/end_time window if one was given.
-      required: [id, name, capacity, price_cents, available]
-
-    Booking:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [invalid_request, unauthorized, not_found]
+            message:
+              type: string
+    GrantCreate:
       type: object
+      required: [booking_reference, member_ref, space_id, space_name, valid_from, valid_until]
       properties:
-        id: { type: integer, example: 1 }
-        space_id: { type: integer, example: 1 }
-        member: { type: string, example: member-a }
-        paid: { type: boolean }
-        start_time: { type: string, format: date-time, example: "2026-09-25T02:00:00+00:00" }
-        end_time: { type: string, format: date-time, example: "2026-09-25T03:00:00+00:00" }
-        amount_cents:
-          type: integer
-          description: >
-            What this booking was actually charged: the space's per-hour
-            rate times the hours booked, fixed at the price when it was
-            made (see issue #78) - a later price change does not affect
-            it. 0 for a subscriber's booking.
-          example: 1500
-        user_id:
-          type: integer
-          nullable: true
-          description: >
-            The account that was logged in when the booking was made (see
-            issue #134), or null for a guest booking made while logged out.
-          example: 1
-        card_last4:
+        booking_reference:
           type: string
-          nullable: true
-          description: >
-            The last 4 digits of the card used to pay (see issue #119).
-            Null until the booking is paid; the full card number and CVC
-            are never stored or returned.
-          example: "4242"
-        created_at:
+          pattern: '^BK-[23456789ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+        member_ref:
+          type: string
+          minLength: 1
+          description: Opaque Member id as text; never an email; never returned
+        space_id:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 2147483647
+        space_name:
+          type: string
+          minLength: 1
+        valid_from:
           type: string
           format: date-time
-          description: >
-            When the booking was made (see issue #138) - not when the space
-            is used, which is start_time. Set by the database.
-          example: "2026-09-24T02:48:20.933270+00:00"
-      required: [id, space_id, member, paid, start_time, end_time, amount_cents, user_id, card_last4, created_at]
-
-    User:
+          description: ISO 8601 with an offset; the booking start
+        valid_until:
+          type: string
+          format: date-time
+          description: ISO 8601 with an offset, after valid_from; the booking end (exclusive)
+    Grant:
       type: object
+      required: [grant_id, booking_reference, status, condition, ticket_code, ticket_url, space_id, space_name, valid_from, valid_until, revoked_at]
       properties:
-        id: { type: integer, example: 1 }
-        email: { type: string, format: email, example: a@example.com }
-      required: [id, email]
-
-    BookingList:
+        grant_id:
+          type: string
+          pattern: '^gr_'
+        booking_reference:
+          type: string
+        status:
+          type: string
+          enum: [issued, checked_in, revoked]
+        condition:
+          type: string
+          enum: [not_yet_valid, expired, no_show, null]
+          nullable: true
+          description: Derived on read, never stored; always null when revoked
+        ticket_code:
+          type: string
+          pattern: '^[23456789ABCDEFGHJKMNPQRSTVWXYZ]{4}-[23456789ABCDEFGHJKMNPQRSTVWXYZ]{4}$'
+          nullable: true
+        ticket_url:
+          type: string
+          format: uri
+          nullable: true
+        space_id:
+          type: integer
+          nullable: true
+        space_name:
+          type: string
+          nullable: true
+        valid_from:
+          type: string
+          format: date-time
+          nullable: true
+        valid_until:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+    Health:
       type: object
+      required: [status]
       properties:
-        bookings:
-          type: array
-          items: { $ref: "#/components/schemas/Booking" }
-      required: [bookings]
+        status:
+          type: string
+          enum: [ok, error]
+        revision:
+          type: string
+        error:
+          type: string
+    Clock:
+      type: object
+      required: [now]
+      properties:
+        now:
+          type: string
+          format: date-time
+          nullable: true
+  examples:
+    GrantIssued:
+      value:
+        grant_id: gr_8Fv2Lq9Xk3Tw7Mz1Rb5Nc4
+        booking_reference: BK-7KQ2M9
+        status: issued
+        condition: not_yet_valid
+        ticket_code: H7K3-9QXA
+        ticket_url: http://localhost:8003/t/q3Vt9XbLk2Rm8PzW4nHc7A
+        space_id: 1
+        space_name: Meeting Room A
+        valid_from: '2026-10-07T09:00:00+07:00'
+        valid_until: '2026-10-07T10:30:00+07:00'
+        revoked_at: null
+    GrantPlanIssued:
+      value:
+        grant_id: gr_6Wc3Nv8Jt2Xq5Pb9Hm4Rd7
+        booking_reference: BK-3MZ8QT
+        status: issued
+        condition: not_yet_valid
+        ticket_code: M4TR-8WCE
+        ticket_url: http://localhost:8003/t/Zk7Pq2Wn9Tb4Xm6Rc3Lv8H
+        space_id: 1
+        space_name: Meeting Room A
+        valid_from: '2026-10-07T10:30:00+07:00'
+        valid_until: '2026-10-07T11:30:00+07:00'
+        revoked_at: null
+    GrantNoShow:
+      summary: Clock 2026-10-07 10:30, never scanned
+      value:
+        grant_id: gr_8Fv2Lq9Xk3Tw7Mz1Rb5Nc4
+        booking_reference: BK-7KQ2M9
+        status: issued
+        condition: no_show
+        ticket_code: H7K3-9QXA
+        ticket_url: http://localhost:8003/t/q3Vt9XbLk2Rm8PzW4nHc7A
+        space_id: 1
+        space_name: Meeting Room A
+        valid_from: '2026-10-07T09:00:00+07:00'
+        valid_until: '2026-10-07T10:30:00+07:00'
+        revoked_at: null
+    GrantRevoked:
+      value:
+        grant_id: gr_8Fv2Lq9Xk3Tw7Mz1Rb5Nc4
+        booking_reference: BK-7KQ2M9
+        status: revoked
+        condition: null
+        ticket_code: H7K3-9QXA
+        ticket_url: http://localhost:8003/t/q3Vt9XbLk2Rm8PzW4nHc7A
+        space_id: 1
+        space_name: Meeting Room A
+        valid_from: '2026-10-07T09:00:00+07:00'
+        valid_until: '2026-10-07T10:30:00+07:00'
+        revoked_at: '2026-10-05T11:00:00+07:00'
+    GrantTombstone:
+      value:
+        grant_id: gr_4Hs9Pd2Wm6Qx8Kn3Tf7Lz1
+        booking_reference: BK-P4W6RC
+        status: revoked
+        condition: null
+        ticket_code: null
+        ticket_url: null
+        space_id: null
+        space_name: null
+        valid_from: null
+        valid_until: null
+        revoked_at: '2026-10-05T10:05:00+07:00'
