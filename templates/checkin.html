@@ -2,13 +2,17 @@
 {% block title %}Check-in kiosk{% endblock %}
 {% block body_class %}kiosk{% endblock %}
 
-{# Scan results in plain words (AXS-R13, AXS-R14). The reason text is the server's, word for word. #}
-{% set titles = {"not_open_yet": "Not open yet", "closed": "Closed", "wrong_room": "Wrong room",
-                 "revoked": "Ticket cancelled"} %}
+{# Every result has one shape: the headline is the server's reason word for word (AXS-R13, AXS-R14),
+   then what Staff does next, then the code and the room. The log badges use the same words. #}
+{% set operator_line = "If the guest disagrees, phone the Operator." %}
+{% set next_steps = {"not_open_yet": "Ask the guest to come back then.",
+                     "wrong_room": "Send the guest there.",
+                     "closed": "The booking has ended. " ~ operator_line,
+                     "revoked": "It opens no door. " ~ operator_line,
+                     "unknown_code": "Check the code on the e-ticket and try again."} %}
 {% set log_badges = {"ok": ("badge-solid", "Door unlocked"), "not_open_yet": ("badge-outline", "Not open yet"),
                      "wrong_room": ("badge-outline", "Wrong room"), "closed": ("badge-muted", "Closed"),
                      "revoked": ("badge-muted", "Cancelled"), "unknown_code": ("badge-muted", "Not recognised")} %}
-{% set operator_line = "If the guest disagrees, phone the Operator." %}
 
 {% block nav %}
   <header class="kiosk-bar">
@@ -17,7 +21,12 @@
       {% if selected %}
         <span class="kiosk-room" data-selected-space-id="{{ selected.id }}">Room: <strong>{{ selected.label }}</strong></span>
         <span class="kiosk-now">Now <time class="num"{% if now_live %} data-live-clock{% endif %}>{{ now_hm }}</time></span>
-        {% if not changing %}<a class="topnav-btn" href="/checkin?change=room">Change room</a>{% endif %}
+        {% if not changing %}
+          {# A GET only shows the picker; choosing a room is a POST (AXS-R11 row 7). #}
+          <form class="kiosk-change" method="get" action="/checkin">
+            <button class="topnav-btn" type="submit" name="change" value="room">Change room</button>
+          </form>
+        {% endif %}
       {% endif %}
     </div>
   </header>
@@ -54,8 +63,9 @@
         {% for room in rooms %}
           <button class="room-card" type="submit" name="space_id" value="{{ room.id }}"
             {%- if selected and room.id == selected.id %} aria-current="true"{% endif %}>
-            <span class="room-card-no">Room {{ room.id }}{% if selected and room.id == selected.id %} · This kiosk{% endif %}</span>
+            <span class="room-card-no">Room {{ room.id }}</span>
             <span class="room-card-name">{{ room.name }}</span>
+            <span class="room-card-action" aria-hidden="true">{{ "This kiosk" if selected and room.id == selected.id else "Use this room" }}</span>
           </button>
         {% endfor %}
       </form>
@@ -67,29 +77,16 @@
         {% set waiting = r.result in ("not_open_yet", "wrong_room") %}
         <div class="kiosk-result{% if r.result == 'ok' %} is-ok{% elif waiting %} is-wait{% endif %}" data-result="{{ r.result }}" role="{{ 'status' if r.result == 'ok' else 'alert' }}">
           <span class="kiosk-result-icon" aria-hidden="true"></span>
-          {% if r.result in titles %}
-            <p class="kiosk-result-title">{{ titles[r.result] }}</p>
-            <p class="kiosk-result-reason">
-              {%- if r.result == "not_open_yet" %}Check-in {{ r.reason }}{% if r.today %} today{% endif %}.
-              {%- else %}{{ r.reason }}.{% endif -%}
-            </p>
-            <p class="kiosk-result-next">
-              {%- if r.result == "not_open_yet" %}Ask the guest to come back then.
-              {%- elif r.result == "wrong_room" %}Send the guest there.
-              {%- elif r.result == "closed" %}The booking has ended. {{ operator_line }}
-              {%- else %}It no longer opens any door. {{ operator_line }}{% endif -%}
-            </p>
-          {% else %}
-            <p class="kiosk-result-title">{{ r.reason }}</p>
-            {% if r.result == "ok" %}
-              <p class="kiosk-result-reason">Booked {{ r.opens }}–{{ r.closes }}. Re-entry is fine until {{ r.closes }}.</p>
-            {% elif r.booking_ref %}
-              <p class="kiosk-result-reason">That is a booking reference (BK-…), not a ticket code.</p>
-              <p class="kiosk-result-next">Ask for the 8-symbol code on the e-ticket.</p>
-            {% else %}
-              <p class="kiosk-result-reason">Check the code on the e-ticket and try again.</p>
-            {% endif %}
-          {% endif %}
+          <p class="kiosk-result-title">
+            {%- if r.result == "not_open_yet" %}Check-in {{ r.reason }}{% if r.today %} today{% endif %}
+            {%- else %}{{ r.reason }}{% endif -%}
+          </p>
+          <p class="kiosk-result-reason">
+            {%- if r.result == "ok" %}Booked {{ r.opens }}–{{ r.closes }}. Re-entry is fine until {{ r.closes }}.
+            {%- elif r.result == "not_open_yet" and not r.today %}Ask the guest to come back on {{ r.day }}.
+            {%- elif r.booking_ref %}That is a booking reference (BK-…), not a ticket code. Ask for the 8-symbol code on the e-ticket.
+            {%- else %}{{ next_steps[r.result] }}{% endif -%}
+          </p>
           <p class="kiosk-result-meta">Code ••••-{{ r.last4 }} at {{ selected.label }}</p>
         </div>
       {% endfor %}

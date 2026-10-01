@@ -361,6 +361,8 @@ def create_app(database_url: str | None = None) -> Flask:
             shown["today"] = (
                 grant["valid_from"].astimezone(LOCAL_TZ).date() == now.astimezone(LOCAL_TZ).date()
             )
+            # The reason keeps the pinned YYYY-MM-DD HH:MM (AXS-R13); the next step names the day.
+            shown["day"] = access.day(grant["valid_from"], now)
         if result == "ok":
             shown["opens"] = access.when(grant["valid_from"], now)
             shown["closes"] = access.when(grant["valid_until"], now)

@@ -227,7 +227,8 @@ def test_axs_r13_window_edges(client):
     page = scan(client, code)
     assert 'data-result="not_open_yet"' in page and "opens 09:00" in page
     set_clock(client, "2026-10-05T10:00:00+07:00")
-    assert "opens 2026-10-07 09:00" in scan(client, code)
+    page = scan(client, code)
+    assert "opens 2026-10-07 09:00" in page and "Ask the guest to come back on Wed 7 Oct." in page
     set_clock(client, "2026-10-07T10:30:00+07:00")
     page = scan(client, code)
     assert 'data-result="closed"' in page and "Check-in closed at 10:30" in page
@@ -351,10 +352,12 @@ def test_axs_r11_room_picker_lists_rooms_as_cards_and_hides_input_until_chosen(c
     issue(client, booking_reference="BK-3MZ8QT", space_id=2, space_name="Focus Pod 1")
     page = client.get("/checkin", headers=KIOSK).get_data(as_text=True)
     assert 'name="space_id" value="1"' in page and 'name="space_id" value="2"' in page
+    assert page.count(">Use this room</span>") == 2  # each card says what a tap does
     assert 'name="code"' not in page and "data-selected-space-id" not in page
     select_room(client, 2)
     page = client.get("/checkin", headers=KIOSK).get_data(as_text=True)
     assert 'name="code"' in page and "autofocus" in page and 'name="space_id"' not in page
+    assert 'name="change" value="room">Change room</button>' in page  # a real button, GET only
     # "Change room" is its own screen; a GET shows the picker but never selects (row 7).
     page = client.get("/checkin?change=room&space_id=1", headers=KIOSK).get_data(as_text=True)
     assert 'value="2" aria-current="true"' in page and 'name="code"' not in page
@@ -385,7 +388,7 @@ def test_axs_r08_r13_kiosk_result_comes_first_and_names_the_next_step(client):
     select_room(client, 1)
     set_clock(client, "2026-10-07T08:50:00+07:00")
     page = scan(client, code)
-    assert "Check-in opens 09:00 today." in page and "Ask the guest to come back then." in page
+    assert "Check-in opens 09:00 today<" in page and "Ask the guest to come back then." in page
     assert '<time class="num">08:50</time>' in page  # the bar's "Now" follows clock.now()
     assert page.index("data-result=") < page.index('name="code"')
     page = scan(client, "bk-7kq2m9")
