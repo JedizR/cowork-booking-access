@@ -1,8 +1,0 @@
-{% extends "base.html" %}
-{% block title %}Ticket{% endblock %}
-{% block content %}
-  <h1>Ticket {{ booking_reference }}</h1>
-  {% if code %}
-    <p>Your access code: <strong>{{ code }}</strong></p>
-  {% endif %}
-{% endblock %}

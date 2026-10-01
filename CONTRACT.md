@@ -6,7 +6,7 @@
 | Consumer | Purchase (`cowork-booking-purchase`), through `access_client.py` only |
 | Other users | The Member's browser (e-ticket `/t/<ticket_token>`); Staff (kiosk `/checkin`); the e2e suite and contract tests (GET /grants) |
 | State | proposed (M2 draft). Becomes agreed at M4 sign-off (tag `contract-v1`), verified by the M6 e2e run |
-| OpenAPI | [openapi/access.yaml](openapi/access.yaml) |
+| OpenAPI | [openapi.yaml](openapi.yaml) |
 | Decisions | D2, D6, D17, D18, D19, D20, D21, D22, D27, D28; ADR-0004, ADR-0008, ADR-0010, ADR-0014, ADR-0017, ADR-0019 |
 
 ## 1. Purpose and parties

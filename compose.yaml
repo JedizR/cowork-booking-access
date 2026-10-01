@@ -1,5 +1,7 @@
 name: cowork-booking-access
 
+# Local quick start only. The secrets below are local-only placeholders; a real
+# deployment sets its own (see README "Environment").
 services:
   db:
     image: postgres:16
@@ -12,18 +14,33 @@ services:
       - "5443:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U access -d access"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
   app:
     build: .
     image: cowork-booking-access
     container_name: cowork-booking-access-app
     environment:
-      APP_REVISION: compose
+      APP_REVISION: ${APP_REVISION:-compose}
       DATABASE_URL: postgresql://access:access@db:5432/access
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8003}
+      SECRET_KEY: ${SECRET_KEY:-local-only-access-secret-key-0123456789abcdef}
+      ACCESS_API_TOKEN: ${ACCESS_API_TOKEN:-local-only-access-api-token-0123456789abcdef}
+      STAFF_PASSWORD: ${STAFF_PASSWORD:-local-staff-pass}
     ports:
       - "8003:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
 
 volumes:
   db-data:

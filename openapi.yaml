@@ -4,7 +4,7 @@ info:
   version: contract-v1-draft
   description: |
     Provider Access, consumer Purchase. State proposed (M2 draft).
-    Contract text: ../purchase-access.md. Rules AXS-R01 to AXS-R19.
+    Contract text: CONTRACT.md. Rules AXS-R01 to AXS-R19.
     Natural key booking_reference for issue and revoke (no Idempotency-Key header).
     Errors: {"error": {"code": "...", "message": "..."}}.
     The lock is mocked: a stored grant or a checked_in state is not proof a door opened.

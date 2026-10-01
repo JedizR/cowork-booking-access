@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}E-ticket{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+  <article class="ticket">
+    <p class="brand">Cowork Booking e-ticket</p>
+    <h1>{{ grant.space_name }}</h1>
+    <p>{{ day }}, {{ start }}-{{ end }} (Bangkok time)</p>
+    <p>Check-in {{ start }}-{{ end }}</p>
+    <p><span class="badge badge-{{ grant.status }}" data-status="{{ grant.status }}">{{ badge }}</span></p>
+    <div class="ticket-credential{% if grant.status == 'revoked' %} is-cancelled{% endif %}">
+      <p class="ticket-code" data-ticket-code="{{ code }}">{{ code }}</p>
+      <div class="ticket-qr">{{ qr }}</div>
+      {% if grant.status == 'revoked' %}<div class="overlay">CANCELLED</div>{% endif %}
+    </div>
+    <p class="hint">Show the code or the QR at the room's check-in kiosk.</p>
+    <p class="small">Booking ref (not for entry) {{ grant.booking_reference }}</p>
+  </article>
+{% endblock %}
