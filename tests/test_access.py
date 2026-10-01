@@ -352,8 +352,11 @@ def test_axs_r11_room_picker_lists_rooms_as_cards_and_hides_input_until_chosen(c
     assert 'name="code"' not in page and "data-selected-space-id" not in page
     select_room(client, 2)
     page = client.get("/checkin", headers=KIOSK).get_data(as_text=True)
-    assert 'name="code"' in page and "autofocus" in page
-    assert 'value="2" aria-current="true"' in page
+    assert 'name="code"' in page and "autofocus" in page and 'name="space_id"' not in page
+    # "Change room" is its own screen; a GET shows the picker but never selects (row 7).
+    page = client.get("/checkin?change=room&space_id=1", headers=KIOSK).get_data(as_text=True)
+    assert 'value="2" aria-current="true"' in page and 'name="code"' not in page
+    assert 'data-selected-space-id="2"' in page and "Keep Focus Pod 1 (room 2)" in page
 
 
 def test_duration_wording():
@@ -362,3 +365,19 @@ def test_duration_wording():
     start = datetime(2026, 10, 7, 9, 0)
     assert [access.duration(start, start + timedelta(minutes=m)) for m in (30, 60, 90, 240)] == [
         "30 min", "1 h", "1 h 30 min", "4 h"]
+
+
+def test_axs_r08_r13_kiosk_result_comes_first_and_names_the_next_step(client):
+    code = issue(client).get_json()["ticket_code"]
+    select_room(client, 1)
+    set_clock(client, "2026-10-07T08:50:00+07:00")
+    page = scan(client, code)
+    assert "Check-in opens 09:00 today." in page and "Ask the guest to come back then." in page
+    assert '<time class="num">08:50</time>' in page  # the bar's "Now" follows clock.now()
+    assert page.index("data-result=") < page.index('name="code"')
+    page = scan(client, "bk-7kq2m9")
+    assert 'data-result="unknown_code"' in page and "Code not recognised" in page
+    assert "That is a booking reference (BK-…), not a ticket code." in page
+    assert ">Booking ref</span>" in page and "••••-Q2M9" in page  # still masked (AXS-R15 row 3)
+    missing = client.get("/t/AAAAAAAAAAAAAAAAAAAAAA").get_data(as_text=True)
+    assert 'href="http://localhost:8001/bookings/mine"' in missing

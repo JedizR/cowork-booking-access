@@ -50,28 +50,21 @@
 .notfound .btn { margin-top: var(--sp-5); }
 
 /* ---- Kiosk ---- */
-.kiosk-bar { position: relative; }
-.kiosk-switch > summary { list-style: none; }
-.kiosk-switch > summary::-webkit-details-marker { display: none; }
-.kiosk-switch[open] > summary { background: rgba(255, 255, 255, 0.14); }
-.kiosk-switch-panel {
-  position: absolute; left: 0; right: 0; top: 100%; z-index: 50;
-  padding: var(--sp-5) var(--gutter) var(--sp-6); background: var(--parchment); color: var(--ink);
-  border-bottom: 1px solid var(--hairline);
-}
-.kiosk-switch-panel > * { max-width: 912px; margin-left: auto; margin-right: auto; }
-.kiosk-switch-title { font-size: var(--fs-body); font-weight: 600; margin-bottom: var(--sp-4); }
+/* 64 px tall on purpose (a door screen); the width matches every other top bar. */
+.kiosk-bar-inner { max-width: calc(var(--w-app) + 2 * var(--gutter)); }
+.kiosk-now { font-size: var(--fs-callout); color: var(--on-dark-muted); white-space: nowrap; }
+.kiosk-now time { color: var(--on-dark); font-weight: 600; }
 
 .kiosk-head { text-align: center; margin-bottom: var(--sp-3); }
 .kiosk-head .eyebrow { margin-bottom: var(--sp-2); }
 .kiosk-title { font-size: var(--fs-title); line-height: 1.12; letter-spacing: -0.022em; }
 .kiosk-sub { margin: var(--sp-2) auto 0; max-width: 46ch; color: var(--muted); }
+.kiosk-keep { align-self: center; }
 
-.room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-4); }
-.kiosk-main .room-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.room-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
 .room-card {
   appearance: none; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1);
-  min-height: 132px; padding: var(--sp-5); margin: 0;
+  min-height: 132px; padding: var(--sp-5); margin: 0; min-width: 0;
   border: 1px solid var(--hairline); border-radius: var(--r-lg); background: var(--canvas); color: var(--ink);
   font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
@@ -79,18 +72,32 @@
 .room-card:hover { border-color: var(--ink); }
 .room-card:active { transform: scale(0.98); }
 .room-card-no { font-size: var(--fs-fine); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.room-card-name { margin-top: auto; font-size: var(--fs-tagline); font-weight: 600; line-height: 1.19; letter-spacing: -0.012em; }
-.room-card-tag { font-size: var(--fs-caption); color: var(--on-dark-muted); }
+.room-card-name { margin-top: auto; max-width: 100%; font-size: var(--fs-tagline); font-weight: 600; line-height: 1.19; letter-spacing: -0.012em; overflow-wrap: anywhere; }
 .room-card[aria-current="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-dark); }
 .room-card[aria-current="true"] .room-card-no { color: var(--on-dark-muted); }
 .room-card[aria-current="true"]:focus-visible { outline-color: var(--black); }
 
 /* Always focused: a thicker edge instead of a second ring around the 2 px border. */
 .kiosk-input:focus-visible { outline: 0; border-width: 4px; padding: 0 calc(var(--sp-5) - 2px); }
-.kiosk-result-meta { grid-column: 2; margin: var(--sp-2) 0 0; font-size: var(--fs-caption); color: var(--muted); }
-.kiosk-result.is-ok .kiosk-result-meta { color: var(--on-dark-muted); }
+
+/* Results: ok = solid black; waiting (not open yet, wrong room) = 2 px frame and its own icon;
+   hard refusals (closed, cancelled, not recognised) = 3 px frame and a cross. */
+.kiosk-result > p { grid-column: 2; }
+.kiosk-result-icon { grid-row: span 4; }
 .kiosk-result-title { font-size: var(--fs-title); }
 .kiosk-result.is-ok .kiosk-result-title { font-size: var(--fs-display); }
+.kiosk-result:not(.is-ok) .kiosk-result-reason { color: var(--ink); font-weight: 600; letter-spacing: -0.012em; }
+.kiosk-result-next { margin: 0; font-size: var(--fs-body); color: var(--ink-80); }
+.kiosk-result-meta { margin: var(--sp-2) 0 0; font-size: var(--fs-caption); color: var(--muted); }
+.kiosk-result.is-ok .kiosk-result-meta { color: var(--on-dark-muted); }
+.kiosk-result.is-wait { border-width: 2px; padding: calc(var(--sp-6) + 1px); }
+.kiosk-result.is-wait .kiosk-result-icon { border-width: 2px; background-size: 38px; }
+.kiosk-result[data-result="not_open_yet"] .kiosk-result-icon {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d1d1f' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 7.5V12l3 2'/%3E%3C/svg%3E");
+}
+.kiosk-result[data-result="wrong_room"] .kiosk-result-icon {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d1d1f' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h13M13 6.5 18.5 12 13 17.5'/%3E%3C/svg%3E");
+}
 
 .kiosk-log { margin-top: var(--sp-5); }
 .kiosk-log-title { font-size: var(--fs-body); font-weight: 600; line-height: 1.24; margin-bottom: var(--sp-3); }
@@ -112,9 +119,12 @@
   .ticket-qr svg { zoom: 1.5; }   /* 9 px modules: still whole pixels */
   .ticket-ref { padding: var(--sp-3) var(--sp-5) var(--sp-4); }
 
-  .kiosk-switch { margin-left: auto; }
-  .kiosk-result-meta { grid-column: auto; }
-  .room-grid, .kiosk-main .room-grid { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
+  .kiosk-bar-inner .topnav-btn { margin-left: 0; }
+  .kiosk-now { margin-left: auto; }
+  .kiosk-result > p { grid-column: auto; }
+  .kiosk-result-icon { grid-row: auto; }
+  .kiosk-result.is-wait { padding: calc(var(--sp-5) + 1px); }
+  .room-grid { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
   .room-card { min-height: 96px; }
 }
 

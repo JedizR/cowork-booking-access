@@ -2,7 +2,7 @@ import base64
 import hmac
 import os
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 
 import psycopg
 import segno
@@ -89,6 +89,11 @@ def get_connection(database_url: str) -> psycopg.Connection:
 def local_time(value: datetime) -> str:
     """For the HTML pages: Bangkok time, no seconds or offset clutter."""
     return value.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
+
+
+def looks_like_booking_ref(result: str, code: str) -> bool:
+    """A ticket code never starts with BK (AXS-R06), so an unknown BK... input is a booking ref."""
+    return result == "unknown_code" and code.startswith("BK")
 
 
 def iso(value: datetime | None) -> str | None:
@@ -291,9 +296,9 @@ def create_app(database_url: str | None = None) -> Flask:
 
         room_list = rooms()
         selected = next((r for r in room_list if r["id"] == session.get("space_id")), None)
+        now = clock.now()
         scans = []
         if selected:
-            now = clock.now()
             with app.db.cursor() as cur:
                 cur.execute(
                     "SELECT * FROM scans WHERE space_id = %s"
@@ -305,6 +310,7 @@ def create_app(database_url: str | None = None) -> Flask:
                         "result": s["result"],
                         "last4": s["input"][-4:],
                         "time": access.when(s["scanned_at"], now),
+                        "booking_ref": looks_like_booking_ref(s["result"], s["input"]),
                     }
                     for s in cur.fetchall()
                 ]
@@ -313,6 +319,11 @@ def create_app(database_url: str | None = None) -> Flask:
             "checkin.html",
             rooms=room_list,
             selected=selected,
+            # A GET never changes the room (AXS-R11 row 7); ?change=room only shows the picker.
+            changing=bool(selected) and request.args.get("change") == "room",
+            now_hm=now.astimezone(LOCAL_TZ).strftime("%H:%M"),
+            # The bar's clock ticks in the browser only when the server runs on real time.
+            now_live=abs((now - datetime.now(timezone.utc)).total_seconds()) < 5,
             scans=scans,
             results=[m for c, m in messages if c == "result"],
             notes=[m for c, m in messages if c != "result"],
@@ -345,7 +356,12 @@ def create_app(database_url: str | None = None) -> Flask:
                 (now, room_id, code[:200], result, grant["grant_id"] if grant else None),
             )
         # The screen shows only the last 4 symbols (AXS-R15) and, for ok, the guest's window.
-        shown = {"result": result, "reason": reason, "last4": code[-4:]}
+        shown = {"result": result, "reason": reason, "last4": code[-4:],
+                 "booking_ref": looks_like_booking_ref(result, code)}
+        if result == "not_open_yet":
+            shown["today"] = (
+                grant["valid_from"].astimezone(LOCAL_TZ).date() == now.astimezone(LOCAL_TZ).date()
+            )
         if result == "ok":
             shown["opens"] = access.when(grant["valid_from"], now)
             shown["closes"] = access.when(grant["valid_until"], now)

@@ -14,3 +14,10 @@ if (kioskResult) {
   document.querySelector(".kiosk-input")?.addEventListener("input", clear, { once: true });
   setTimeout(clear, 15000);
 }
+
+// Kiosk bar clock: the server renders "Now 09:05"; on real time it keeps ticking here.
+const liveClock = document.querySelector("[data-live-clock]");
+if (liveClock) {
+  const hm = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Bangkok" });
+  setInterval(() => { liveClock.textContent = hm.format(new Date()); }, 10000);
+}
