@@ -228,7 +228,7 @@ def test_axs_r13_window_edges(client):
     assert 'data-result="not_open_yet"' in page and "opens 09:00" in page
     set_clock(client, "2026-10-05T10:00:00+07:00")
     page = scan(client, code)
-    assert "opens 2026-10-07 09:00" in page and "Ask the guest to come back on Wed 7 Oct." in page
+    assert "opens 2026-10-07 09:00" in page and 'come back on <span class="nowrap">Wed 7 Oct</span>.' in page
     set_clock(client, "2026-10-07T10:30:00+07:00")
     page = scan(client, code)
     assert 'data-result="closed"' in page and "Check-in closed at 10:30" in page

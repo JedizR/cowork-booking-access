@@ -163,4 +163,8 @@
 @media print {
   /* Notches are cut-outs on screen; on paper they read as stray circles. */
   .ticket-divider::before, .ticket-divider::after { display: none; }
+  /* Browsers drop background fills by default when printing: the band becomes black text over a heavy rule. */
+  .ticket-band { background: none; color: #000; border-bottom: 3px solid #000; }
+  .ticket-band span { color: #000; }
+  .ticket-brand .brand-mark { background: none; color: #000; border: 1.5px solid #000; }
 }

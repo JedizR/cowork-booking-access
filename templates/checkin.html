@@ -83,7 +83,7 @@
           </p>
           <p class="kiosk-result-reason">
             {%- if r.result == "ok" %}Booked {{ r.opens }}–{{ r.closes }}. Re-entry is fine until {{ r.closes }}.
-            {%- elif r.result == "not_open_yet" and not r.today %}Ask the guest to come back on {{ r.day }}.
+            {%- elif r.result == "not_open_yet" and not r.today %}Ask the guest to come back on <span class="nowrap">{{ r.day }}</span>.
             {%- elif r.booking_ref %}That is a booking reference (BK-…), not a ticket code. Ask for the 8-symbol code on the e-ticket.
             {%- else %}{{ next_steps[r.result] }}{% endif -%}
           </p>
