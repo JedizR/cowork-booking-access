@@ -1,0 +1,174 @@
+/* Access-only styles on top of the shared style.css (DESIGN.md 8.5 e-ticket, 8.6 kiosk). */
+
+/* ---- E-ticket: a boarding pass ---- */
+.ticket-wrap { width: 100%; max-width: 560px; margin: 0 auto; }  /* a flex item: without width it shrinks to its content */
+.ticket { max-width: none; }
+.ticket-top { padding: var(--sp-6) var(--sp-6) var(--sp-5); }
+.ticket-head { align-items: center; margin-bottom: var(--sp-5); }
+.ticket-brand { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-caption); font-weight: 600; }
+.ticket-brand .brand-mark { background: var(--ink); color: var(--on-dark); }
+.ticket-title { font-size: var(--fs-title); letter-spacing: -0.022em; margin: 0; }
+.ticket-room { margin: var(--sp-1) 0 var(--sp-5); color: var(--muted); font-size: var(--fs-callout); }
+.ticket-meta dd { font-size: var(--fs-tagline); letter-spacing: -0.012em; line-height: 1.25; }
+/* The check-in window is the ticket's time: shown once, as large as the date. */
+.ticket-window {
+  display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-1) var(--sp-4); flex-wrap: wrap;
+  margin: var(--sp-5) 0 0; padding: var(--sp-4); border-radius: var(--r-md); background: var(--parchment);
+}
+.ticket-window strong { font-size: var(--fs-tagline); letter-spacing: -0.012em; line-height: 1.25; font-variant-numeric: normal; }  /* tabular figures widen the hyphens */
+.ticket-window span { font-size: var(--fs-callout); color: var(--ink-80); }
+.ticket-divider { margin: var(--sp-2) var(--sp-6); }
+.ticket-divider::before { left: calc(-1 * var(--sp-6) - 13px); }
+.ticket-divider::after { right: calc(-1 * var(--sp-6) - 13px); }
+.ticket-body {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-5) var(--sp-6);
+  padding: var(--sp-5) var(--sp-6) var(--sp-6); text-align: left;
+}
+.ticket-code-block .eyebrow { margin-bottom: var(--sp-2); }
+.ticket-code { font-size: 40px; letter-spacing: 0.06em; }  /* leaves a clear gap to the QR at 560 px */
+.ticket-hint { margin-top: var(--sp-3); font-size: var(--fs-callout); color: var(--ink-80); }
+/* segno draws 6 px modules with a 4-module quiet zone: keep its own size so edges stay crisp. */
+.ticket-qr { width: auto; height: auto; margin: 0; padding: 0; line-height: 0; overflow: hidden; }
+.ticket-qr svg { width: auto; height: auto; }
+.ticket-ref { display: block; padding: var(--sp-3) var(--sp-6) var(--sp-4); }
+/* Ended tickets: the code stays legible for support, the QR stops inviting a scan.
+   Cancelled says so in a band right above the code and the QR; nothing is drawn over them. */
+.ticket.is-expired .ticket-qr, .ticket.is-cancelled .ticket-qr { opacity: 0.16; }
+.ticket.is-expired .ticket-code, .ticket.is-cancelled .ticket-code { opacity: 0.4; color: var(--muted); }
+.ticket.is-cancelled .ticket-code { text-decoration: line-through; text-decoration-thickness: 3px; }
+.ticket-band {
+  grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-1) var(--sp-4); flex-wrap: wrap;
+  margin: 0; padding: 14px var(--sp-4); border-radius: var(--r-md); background: var(--ink); color: var(--on-dark); font-size: var(--fs-callout);
+}
+.ticket-band strong { font-size: var(--fs-tagline); font-weight: 700; letter-spacing: 0.16em; line-height: 1.1; }
+.ticket-band span { color: var(--on-dark-muted); }
+.ticket-actions { margin-top: var(--sp-5); }
+.ticket-note { max-width: 46ch; margin: var(--sp-4) auto 0; text-align: center; }
+
+/* ---- 404: the same parchment page and card as the ticket it replaces ---- */
+.notfound .ticket-top { padding: var(--sp-6); }
+.notfound-eyebrow { margin: var(--sp-6) 0 var(--sp-2); }
+.notfound-text { margin: var(--sp-3) 0 0; color: var(--muted); }
+.notfound .btn { margin-top: var(--sp-5); }
+
+/* ---- Kiosk ---- */
+/* 64 px tall on purpose (a door screen); the width matches every other top bar. */
+.kiosk-bar-inner { max-width: calc(var(--w-app) + 2 * var(--gutter)); }
+.kiosk-now { font-size: var(--fs-callout); color: var(--on-dark-muted); white-space: nowrap; }
+.kiosk-now time { color: var(--on-dark); font-weight: 600; }
+/* Change room: a real button, sized like every other kiosk control. */
+.kiosk-change { margin: 0; display: inline-flex; }
+.kiosk-change .topnav-btn { min-height: 40px; padding: 7px 18px; font-weight: 600; border-color: rgba(255, 255, 255, 0.7); }
+
+.kiosk-head { text-align: center; margin-bottom: var(--sp-3); }
+.kiosk-head .eyebrow { margin-bottom: var(--sp-2); }
+.kiosk-title { font-size: var(--fs-title); line-height: 1.12; letter-spacing: -0.022em; }
+.kiosk-sub { margin: var(--sp-2) auto 0; max-width: 46ch; color: var(--muted); }
+.kiosk-keep { align-self: center; }
+
+.room-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
+.room-card {
+  appearance: none; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1);
+  min-height: 168px; padding: var(--sp-5); margin: 0; min-width: 0;
+  border: 1px solid var(--hairline); border-radius: var(--r-lg); background: var(--canvas); color: var(--ink);
+  font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.room-card:hover { border-color: var(--ink); }
+.room-card:active { transform: scale(0.98); }
+.room-card-no { font-size: var(--fs-fine); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.room-card-name { max-width: 100%; font-size: var(--fs-tagline); font-weight: 600; line-height: 1.19; letter-spacing: -0.012em; overflow-wrap: anywhere; }
+/* The card is the button; the pill says what a tap does. */
+.room-card-action {
+  margin-top: auto; display: inline-flex; align-items: center; min-height: 36px; padding: 6px 16px;
+  border: 1px solid var(--ink); border-radius: var(--r-pill); font-size: var(--fs-caption); font-weight: 600;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.room-card:hover .room-card-action { background: var(--ink); color: var(--on-dark); }
+.room-card[aria-current="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-dark); }
+.room-card[aria-current="true"] .room-card-no { color: var(--on-dark-muted); }
+/* The current room's pill is a state, not an action: no edge. */
+.room-card[aria-current="true"] .room-card-action { border-color: transparent; padding: 6px 0; background: transparent; color: var(--on-dark-muted); }
+.room-card[aria-current="true"]:focus-visible { outline-color: var(--black); }
+
+/* Always focused: a thicker edge instead of a second ring around the 2 px border. */
+.kiosk-input:focus-visible { outline: 0; border-width: 4px; padding: 0 calc(var(--sp-5) - 2px); }
+
+/* Results, read from a step away: headline = what happened, then what to do, then code and room.
+   ok = solid black; waiting (not open yet, wrong room) = 2 px frame and its own icon;
+   hard refusals (closed, cancelled, not recognised) = 3 px frame and a cross. */
+.kiosk-result { padding: 40px; gap: var(--sp-3) var(--sp-6); }
+.kiosk-result > p { grid-column: 2; }
+.kiosk-result-icon { grid-row: span 3; align-self: start; width: 88px; height: 88px; background-size: 48px; }
+/* The title is a short state ("Wrong room"), so it can be read across the room; the reason says why. */
+.kiosk-result-title { font-size: 56px; line-height: 1.05; letter-spacing: -0.028em; text-wrap: balance; }
+.kiosk-result-mock { font-size: var(--fs-heading); font-weight: 600; letter-spacing: -0.012em; color: var(--on-dark-muted); white-space: nowrap; }
+.kiosk-result-reason { font-size: var(--fs-heading); line-height: 1.3; letter-spacing: -0.012em; color: var(--ink); text-wrap: pretty; }
+.kiosk-result-meta { margin: var(--sp-1) 0 0; font-size: var(--fs-callout); color: var(--muted); text-wrap: balance; }
+.kiosk-result.is-ok .kiosk-result-icon { background-size: 54px; }
+.kiosk-result.is-ok .kiosk-result-reason { color: var(--on-dark); }
+.kiosk-result.is-ok .kiosk-result-meta { color: var(--on-dark-muted); }
+.kiosk-result.is-wait { border-width: 2px; padding: 41px; }
+.kiosk-result.is-wait .kiosk-result-icon { border-width: 2px; background-size: 46px; }
+.kiosk-result[data-result="not_open_yet"] .kiosk-result-icon {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d1d1f' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 7.5V12l3 2'/%3E%3C/svg%3E");
+}
+.kiosk-result[data-result="wrong_room"] .kiosk-result-icon {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d1d1f' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h13M13 6.5 18.5 12 13 17.5'/%3E%3C/svg%3E");
+}
+
+.kiosk-log { margin-top: var(--sp-5); }
+.kiosk-log-title { font-size: var(--fs-tagline); font-weight: 600; line-height: 1.24; letter-spacing: -0.012em; margin-bottom: var(--sp-3); }
+/* Read on a tablet at arm's length: body-size rows, bigger badges. */
+.kiosk-log .table { font-size: var(--fs-body); }
+.kiosk-log .table th { font-size: var(--fs-caption); }
+.kiosk-log .table td { padding-top: 14px; padding-bottom: 14px; }
+.kiosk-log .table td:first-child { font-weight: 600; }
+.kiosk-log .table th:last-child, .kiosk-log .table td:last-child { text-align: right; }
+.kiosk-log .badge { height: 30px; padding: 0 14px; font-size: var(--fs-caption); }
+.kiosk-log-code { letter-spacing: 0.06em; }
+.kiosk-log-empty { margin: 0; padding: var(--sp-4) var(--sp-5); border: 1px dashed var(--fill-strong); border-radius: var(--r-lg); color: var(--muted); font-size: var(--fs-callout); }
+.kiosk-foot { padding: var(--sp-5) var(--gutter) var(--sp-6); text-align: center; font-size: var(--fs-fine); color: var(--muted); }
+
+@media (max-width: 640px) {
+  .ticket-page { padding: var(--sp-5) var(--gutter); }
+  .ticket-top, .notfound .ticket-top { padding: var(--sp-5); }
+  .ticket-band { justify-content: center; text-align: center; padding: 12px var(--sp-4); }
+  .ticket-meta dd, .ticket-window strong { font-size: 18px; }
+  .ticket-window { padding: 12px var(--sp-4); }
+  .ticket-divider { margin: var(--sp-2) var(--sp-5); }
+  .ticket-divider::before { left: calc(-1 * var(--sp-5) - 13px); }
+  .ticket-divider::after { right: calc(-1 * var(--sp-5) - 13px); }
+  .ticket-body { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; padding: var(--sp-5); }
+  .ticket-code { font-size: 38px; }
+  .ticket-qr svg { zoom: 1.5; }   /* 9 px modules: still whole pixels */
+  .ticket-ref { padding: var(--sp-3) var(--sp-5) var(--sp-4); }
+
+  .kiosk-bar-inner .kiosk-change { margin-left: 0; }
+  .kiosk-now { margin-left: auto; }
+  .kiosk-result { padding: var(--sp-5) var(--sp-5) var(--sp-6); gap: var(--sp-2); }
+  .kiosk-result > p { grid-column: auto; }
+  .kiosk-result-icon { grid-row: auto; align-self: center; width: 64px; height: 64px; background-size: 36px; margin-bottom: var(--sp-2); }
+  .kiosk-result.is-ok .kiosk-result-icon { background-size: 40px; }
+  .kiosk-result.is-wait .kiosk-result-icon { background-size: 34px; }
+  .kiosk-result-title { font-size: 40px; }
+  .kiosk-result-mock { font-size: var(--fs-body); }
+  .kiosk-result-reason { font-size: 19px; }
+  .kiosk-result.is-wait { padding: calc(var(--sp-5) + 1px) calc(var(--sp-5) + 1px) calc(var(--sp-6) + 1px); }
+  .kiosk-log .table { font-size: var(--fs-callout); }
+  .kiosk-log .table td { padding-top: 12px; padding-bottom: 12px; }
+  .kiosk-log .badge { height: 28px; padding: 0 12px; font-size: var(--fs-fine); }
+  .room-grid { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
+  .room-card { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px var(--sp-3); }
+  .room-card-no, .room-card-name { grid-column: 1; }
+  .room-card-action { grid-column: 2; grid-row: 1 / span 2; margin: 0; }
+}
+
+@media print {
+  /* Notches are cut-outs on screen; on paper they read as stray circles. */
+  .ticket-divider::before, .ticket-divider::after { display: none; }
+  /* Browsers drop background fills by default when printing: the band becomes black text in a heavy frame. */
+  .ticket-band { background: none; color: #000; border: 3px solid #000; }
+  .ticket-band span { color: #000; }
+  .ticket-brand .brand-mark { background: none; color: #000; border: 1.5px solid #000; }
+}

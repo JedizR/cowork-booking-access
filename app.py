@@ -2,7 +2,7 @@ import base64
 import hmac
 import os
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 
 import psycopg
 import segno
@@ -91,6 +91,11 @@ def local_time(value: datetime) -> str:
     return value.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
 
 
+def looks_like_booking_ref(result: str, code: str) -> bool:
+    """A ticket code never starts with BK (AXS-R06), so an unknown BK... input is a booking ref."""
+    return result == "unknown_code" and code.startswith("BK")
+
+
 def iso(value: datetime | None) -> str | None:
     return value.astimezone(LOCAL_TZ).isoformat() if value else None
 
@@ -104,6 +109,8 @@ def create_app(database_url: str | None = None) -> Flask:
     api_token = require_secret("ACCESS_API_TOKEN", 32).encode()
     staff_password = require_secret("STAFF_PASSWORD", 12).encode()
     public_url = os.getenv("PUBLIC_URL", "http://localhost:8003").rstrip("/")
+    # Only for the 404 page's way back to My bookings, where every ticket link lives.
+    purchase_url = os.getenv("PURCHASE_PUBLIC_URL", "http://localhost:8001").rstrip("/")
 
     app = Flask(__name__)
     app.secret_key = secret_key
@@ -235,9 +242,11 @@ def create_app(database_url: str | None = None) -> Flask:
             code=code,
             qr=qr,
             badge=access.badge(grant, now),
-            day=grant["valid_from"].astimezone(LOCAL_TZ).strftime("%Y-%m-%d"),
+            opens_later=now < grant["valid_from"],
+            day=access.day(grant["valid_from"], now),
             start=grant["valid_from"].astimezone(LOCAL_TZ).strftime("%H:%M"),
             end=grant["valid_until"].astimezone(LOCAL_TZ).strftime("%H:%M"),
+            length=access.duration(grant["valid_from"], grant["valid_until"]),
         )
         return page, 200, {"Referrer-Policy": "no-referrer"}
 
@@ -261,7 +270,11 @@ def create_app(database_url: str | None = None) -> Flask:
                 " WHERE ticket_code IS NOT NULL ORDER BY space_id, valid_from DESC"
             )
             return [
-                {"id": r["space_id"], "label": access.room_label(r["space_id"], r["space_name"])}
+                {
+                    "id": r["space_id"],
+                    "name": r["space_name"],
+                    "label": access.room_label(r["space_id"], r["space_name"]),
+                }
                 for r in cur.fetchall()
             ]
 
@@ -282,9 +295,9 @@ def create_app(database_url: str | None = None) -> Flask:
 
         room_list = rooms()
         selected = next((r for r in room_list if r["id"] == session.get("space_id")), None)
+        now = clock.now()
         scans = []
         if selected:
-            now = clock.now()
             with app.db.cursor() as cur:
                 cur.execute(
                     "SELECT * FROM scans WHERE space_id = %s"
@@ -296,6 +309,7 @@ def create_app(database_url: str | None = None) -> Flask:
                         "result": s["result"],
                         "last4": s["input"][-4:],
                         "time": access.when(s["scanned_at"], now),
+                        "booking_ref": looks_like_booking_ref(s["result"], s["input"]),
                     }
                     for s in cur.fetchall()
                 ]
@@ -304,9 +318,14 @@ def create_app(database_url: str | None = None) -> Flask:
             "checkin.html",
             rooms=room_list,
             selected=selected,
+            # A GET never changes the room (AXS-R11 row 7); ?change=room only shows the picker.
+            changing=bool(selected) and request.args.get("change") == "room",
+            now_hm=now.astimezone(LOCAL_TZ).strftime("%H:%M"),
+            # The bar's clock ticks in the browser only when the server runs on real time.
+            now_live=abs((now - datetime.now(timezone.utc)).total_seconds()) < 5,
             scans=scans,
-            results=[(c[7:], m) for c, m in messages if c.startswith("result:")],
-            notes=[m for c, m in messages if not c.startswith("result:")],
+            results=[m for c, m in messages if c == "result"],
+            notes=[m for c, m in messages if c != "result"],
         )
 
     def scan(raw: str) -> None:
@@ -335,7 +354,23 @@ def create_app(database_url: str | None = None) -> Flask:
                 " VALUES (%s, %s, %s, %s, %s)",
                 (now, room_id, code[:200], result, grant["grant_id"] if grant else None),
             )
-        flash(reason, "result:" + result)
+        # The screen shows only the last 4 symbols (AXS-R15) and, for ok, the guest's window.
+        shown = {"result": result, "reason": reason, "last4": code[-4:],
+                 "booking_ref": looks_like_booking_ref(result, code)}
+        if result == "not_open_yet":
+            shown["today"] = (
+                grant["valid_from"].astimezone(LOCAL_TZ).date() == now.astimezone(LOCAL_TZ).date()
+            )
+            # The reason keeps the pinned YYYY-MM-DD HH:MM (AXS-R13); the next step names the day.
+            shown["day"] = access.day(grant["valid_from"], now)
+        if result == "ok":
+            shown["opens"] = access.when(grant["valid_from"], now)
+            shown["closes"] = access.when(grant["valid_until"], now)
+        flash(shown, "result")
+
+    @app.errorhandler(404)
+    def not_found(_):
+        return render_template("404.html", purchase_url=purchase_url), 404
 
     # ---- Ops ----
 

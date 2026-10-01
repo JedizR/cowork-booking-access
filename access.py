@@ -110,6 +110,21 @@ def when(value: datetime, now: datetime) -> str:
     return local.strftime("%Y-%m-%d %H:%M")
 
 
+def day(value: datetime, now: datetime) -> str:
+    """"Sat 3 Oct" in Bangkok, the format Purchase uses; the year only when it is not this year."""
+    local = value.astimezone(LOCAL_TZ)
+    label = f"{local:%a} {local.day} {local:%b}"
+    return label if local.year == now.astimezone(LOCAL_TZ).year else f"{label} {local.year}"
+
+
+def duration(start: datetime, end: datetime) -> str:
+    """"1 h 30 min", "2 h" or "30 min"."""
+    hours, minutes = divmod(int((end - start).total_seconds()) // 60, 60)
+    if not hours:
+        return f"{minutes} min"
+    return f"{hours} h {minutes} min" if minutes else f"{hours} h"
+
+
 def room_label(space_id: int, space_name: str) -> str:
     return f"{space_name} (room {space_id})"
 

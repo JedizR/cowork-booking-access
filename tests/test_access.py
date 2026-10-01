@@ -174,12 +174,15 @@ def test_axs_r10_badge_follows_state_and_clock(client):
     body = issue(client).get_json()
     set_clock(client, "2026-10-07T09:00:00+07:00")
     page = ticket_page(client, body["ticket_url"]).get_data(as_text=True)
-    assert 'data-status="issued">Issued<' in page and "Check-in 09:00-10:30" in page
+    assert 'data-status="issued">Issued<' in page and "Check-in 09:00–10:30" in page
     set_clock(client, "2026-10-07T10:30:00+07:00")
     assert ">Expired<" in ticket_page(client, body["ticket_url"]).get_data(as_text=True)
     client.post("/grants/BK-7KQ2M9/revoke", headers=API)
     page = ticket_page(client, body["ticket_url"]).get_data(as_text=True)
     assert 'data-status="revoked">Cancelled<' in page and "CANCELLED" in page
+    # The band leads the code half, right above the code and the QR; nothing is drawn over them.
+    assert page.index("ticket-body") < page.index("CANCELLED") < page.index("data-ticket-code")
+    assert "ticket-stamp" not in page
 
 
 # ---- Kiosk ----
@@ -213,7 +216,7 @@ def test_axs_r12_r13_normalised_code_opens_inside_window_and_reentry(client):
     select_room(client, 1)
     set_clock(client, "2026-10-07T09:00:00+07:00")
     page = scan(client, " " + code.lower().replace("-", " - ") + " ")
-    assert 'data-result="ok"' in page and "Door unlocked (mock)" in page
+    assert 'data-result="ok"' in page and "Door unlocked (mock)" in re.sub(r"<[^>]+>", "", page)
     set_clock(client, "2026-10-07T10:29:00+07:00")
     assert 'data-result="ok"' in scan(client, code)
 
@@ -225,7 +228,8 @@ def test_axs_r13_window_edges(client):
     page = scan(client, code)
     assert 'data-result="not_open_yet"' in page and "opens 09:00" in page
     set_clock(client, "2026-10-05T10:00:00+07:00")
-    assert "opens 2026-10-07 09:00" in scan(client, code)
+    page = scan(client, code)
+    assert "opens 2026-10-07 09:00" in page and 'come back on <span class="nowrap">Wed 7 Oct</span>.' in page
     set_clock(client, "2026-10-07T10:30:00+07:00")
     page = scan(client, code)
     assert 'data-result="closed"' in page and "Check-in closed at 10:30" in page
@@ -245,8 +249,8 @@ def test_axs_r14_order_revoked_before_wrong_room(client):
     select_room(client, 2)
     set_clock(client, "2026-10-07T09:00:00+07:00")
     page = scan(client, code)
-    assert 'data-result="wrong_room"' in page
-    assert "This ticket is for Meeting Room A (room 1)" in page
+    assert 'data-result="wrong_room"' in page and ">Wrong room</p>" in page
+    assert "This ticket is for Meeting Room A (room 1). Send the guest there." in page
     client.post("/grants/BK-7KQ2M9/revoke", headers=API)
     page = scan(client, code)
     assert 'data-result="revoked"' in page and "This ticket was cancelled" in page
@@ -301,3 +305,109 @@ def test_axs_r19_test_clock_off_unless_flag_true(env, client):
     assert client.post("/_test/clock", json={"now": "2026-10-07T09:00:00+07:00"}).status_code == 404
     health = client.get("/health")
     assert health.status_code == 200 and set(health.get_json()) == {"status", "revision"}
+
+
+# ---- Page states (m8 UX) ----
+
+
+def test_axs_r10_ticket_state_line_follows_window_and_status(client):
+    url = issue(client).get_json()["ticket_url"]
+    states = [
+        ("2026-10-05T11:00:00+07:00", "Valid only in this window"),
+        ("2026-10-07T09:00:00+07:00", "Open now"),
+        ("2026-10-07T10:30:00+07:00", "This code no longer opens the door"),
+    ]
+    for now, line in states:
+        set_clock(client, now)
+        page = ticket_page(client, url).get_data(as_text=True)
+        assert line in page and "<dd>Wed 7 Oct</dd>" in page and "1 h 30 min" in page
+    assert "Show the code or QR" not in page and "Anyone with this link" not in page
+    client.post("/grants/BK-7KQ2M9/revoke", headers=API)
+    page = ticket_page(client, url).get_data(as_text=True)
+    assert "No longer valid" in page and "Show the code or QR" not in page
+    missing = client.get("/t/AAAAAAAAAAAAAAAAAAAAAA")
+    assert missing.status_code == 404 and "This page does not exist" in missing.get_data(as_text=True)
+
+
+def test_axs_r10_checked_in_ticket_says_reentry_until_end(client):
+    body = issue(client).get_json()
+    select_room(client, 1)
+    set_clock(client, "2026-10-07T09:05:00+07:00")
+    scan(client, body["ticket_code"])
+    page = ticket_page(client, body["ticket_url"]).get_data(as_text=True)
+    assert 'data-status="checked_in">Checked in<' in page and "re-entry until 10:30" in page
+
+
+def test_axs_r13_r15_ok_result_shows_window_and_never_the_full_code(client):
+    code = issue(client).get_json()["ticket_code"]
+    select_room(client, 1)
+    set_clock(client, "2026-10-07T09:05:00+07:00")
+    page = scan(client, code)
+    assert "Booked 09:00–10:30. Re-entry is fine until 10:30." in page
+    assert f"Code ••••-{code[-4:]} at Meeting Room A (room 1)" in page
+    assert code not in page and code.replace("-", "") not in page
+
+
+def test_axs_r11_room_picker_lists_rooms_as_cards_and_hides_input_until_chosen(client):
+    issue(client)
+    issue(client, booking_reference="BK-3MZ8QT", space_id=2, space_name="Focus Pod 1")
+    page = client.get("/checkin", headers=KIOSK).get_data(as_text=True)
+    assert 'name="space_id" value="1"' in page and 'name="space_id" value="2"' in page
+    assert page.count(">Use this room</span>") == 2  # each card says what a tap does
+    assert 'name="code"' not in page and "data-selected-space-id" not in page
+    select_room(client, 2)
+    page = client.get("/checkin", headers=KIOSK).get_data(as_text=True)
+    assert 'name="code"' in page and "autofocus" in page and 'name="space_id"' not in page
+    assert 'name="change" value="room">Change room</button>' in page  # a real button, GET only
+    # "Change room" is its own screen; a GET shows the picker but never selects (row 7).
+    page = client.get("/checkin?change=room&space_id=1", headers=KIOSK).get_data(as_text=True)
+    assert 'value="2" aria-current="true"' in page and 'name="code"' not in page
+    assert 'data-selected-space-id="2"' in page and "Keep Focus Pod 1 (room 2)" in page
+
+
+def test_day_wording_adds_the_year_only_off_this_year():
+    from datetime import datetime
+
+    start = datetime(2026, 10, 3, 9, 0, tzinfo=access.LOCAL_TZ)
+    assert access.day(start, datetime(2026, 10, 1, 12, 0, tzinfo=access.LOCAL_TZ)) == "Sat 3 Oct"
+    assert access.day(start, datetime(2027, 1, 2, 12, 0, tzinfo=access.LOCAL_TZ)) == "Sat 3 Oct 2026"
+    # Bangkok's date, not UTC's: 23:30 UTC on 2 Oct is 06:30 on Sat 3 Oct.
+    late = datetime(2026, 10, 2, 23, 30, tzinfo=access.timezone.utc)
+    assert access.day(late, start) == "Sat 3 Oct"
+
+
+def test_duration_wording():
+    from datetime import datetime, timedelta
+
+    start = datetime(2026, 10, 7, 9, 0)
+    assert [access.duration(start, start + timedelta(minutes=m)) for m in (30, 60, 90, 240)] == [
+        "30 min", "1 h", "1 h 30 min", "4 h"]
+
+
+def test_axs_r08_r13_kiosk_result_comes_first_and_names_the_next_step(client):
+    code = issue(client).get_json()["ticket_code"]
+    select_room(client, 1)
+    set_clock(client, "2026-10-07T08:50:00+07:00")
+    page = scan(client, code)
+    shown = re.sub(r"<[^>]+>", "", page)
+    assert ">Not open yet</p>" in page and "Check-in opens 09:00 today. Ask the guest to come back then." in shown
+    assert '<time class="num">08:50</time>' in page  # the bar's "Now" follows clock.now()
+    assert page.index("data-result=") < page.index('name="code"')
+    page = scan(client, "bk-7kq2m9")
+    assert 'data-result="unknown_code"' in page and "Code not recognised" in page
+    assert "That is a booking reference (BK-…), not a ticket code." in page
+    assert ">Booking ref</span>" in page and "••••-Q2M9" in page  # still masked (AXS-R15 row 3)
+    missing = client.get("/t/AAAAAAAAAAAAAAAAAAAAAA").get_data(as_text=True)
+    assert 'href="http://localhost:8001/bookings/mine"' in missing
+
+
+def test_axs_r15_log_badges_are_solid_only_for_door_unlocked(client):
+    code = issue(client).get_json()["ticket_code"]
+    select_room(client, 1)
+    set_clock(client, "2026-10-07T08:50:00+07:00")
+    scan(client, code)
+    set_clock(client, "2026-10-07T09:00:00+07:00")
+    page = scan(client, code)
+    assert '<span class="badge badge-solid">Door unlocked</span>' in page
+    assert '<span class="badge badge-muted">Not open yet</span>' in page and "badge-outline" not in page
+    assert "an ok result" not in page and "“Door unlocked” means the scan was accepted" in page
