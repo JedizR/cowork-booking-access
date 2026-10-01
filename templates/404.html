@@ -1,13 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Not found{% endblock %}
+{% block body_class %}ticket-page{% endblock %}
+{# Mostly reached from a broken e-ticket link, so it looks like the ticket page it replaces (DESIGN 8.9). #}
 {% block content %}
-  <main class="page">
-    <div class="container container-narrow">
-      <div class="empty">
-        <p class="eyebrow">404</p>
-        <h1 class="empty-title">This page does not exist</h1>
-        <p class="empty-text">Check the link you were given and open it again. An e-ticket link must be copied in full.</p>
+  <main class="ticket-wrap">
+    <article class="ticket notfound" aria-labelledby="notfound-title">
+      <div class="ticket-top">
+        <span class="ticket-brand"><span class="brand-mark" aria-hidden="true">C</span>Cowork Booking</span>
+        <p class="eyebrow notfound-eyebrow">404</p>
+        <h1 class="ticket-title" id="notfound-title">This page does not exist</h1>
+        <p class="notfound-text">Check the link you were given and open it again. An e-ticket link must be copied in full.</p>
+        <p class="notfound-text">Every e-ticket is also linked from your bookings.</p>
+        <a class="btn btn-secondary" href="{{ purchase_url }}/bookings/mine">Open My bookings</a>
       </div>
-    </div>
+    </article>
   </main>
 {% endblock %}

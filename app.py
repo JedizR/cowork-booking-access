@@ -104,6 +104,8 @@ def create_app(database_url: str | None = None) -> Flask:
     api_token = require_secret("ACCESS_API_TOKEN", 32).encode()
     staff_password = require_secret("STAFF_PASSWORD", 12).encode()
     public_url = os.getenv("PUBLIC_URL", "http://localhost:8003").rstrip("/")
+    # Only for the 404 page's way back to My bookings, where every ticket link lives.
+    purchase_url = os.getenv("PURCHASE_PUBLIC_URL", "http://localhost:8001").rstrip("/")
 
     app = Flask(__name__)
     app.secret_key = secret_key
@@ -351,7 +353,7 @@ def create_app(database_url: str | None = None) -> Flask:
 
     @app.errorhandler(404)
     def not_found(_):
-        return render_template("404.html"), 404
+        return render_template("404.html", purchase_url=purchase_url), 404
 
     # ---- Ops ----
 

@@ -50,6 +50,7 @@ placeholders; override them with environment variables for anything else.
 | `ACCESS_API_TOKEN` | yes | At least 32 characters. Bearer token Purchase sends to `/grants*` |
 | `STAFF_PASSWORD` | yes | At least 12 characters. HTTP Basic password for `/checkin` |
 | `PUBLIC_URL` | no | Base of `ticket_url`, default `http://localhost:8003`. `https` makes the cookie `Secure` |
+| `PURCHASE_PUBLIC_URL` | no | Purchase's browser URL, default `http://localhost:8001`. Only for the 404 page's "Open My bookings" link; Access never calls it |
 | `APP_REVISION` | no | Shown by `/health`, default `local` |
 | `TEST_CLOCK_ENABLED` | e2e only | Exactly `true` enables `POST /_test/clock`. Never set it in a deployment |
 
