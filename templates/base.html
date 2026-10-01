@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}{% endblock %} · Cowork Booking</title>
+    {# ponytail: inline icon, so browsers never ask for /favicon.ico (404 in the console). #}
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231d1d1f'/%3E%3Ctext x='16' y='22.5' font-family='Inter,Arial,sans-serif' font-size='19' font-weight='700' fill='%23fff' text-anchor='middle'%3EC%3C/text%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -11,14 +13,7 @@
     <script src="{{ url_for('static', filename='access.js') }}" defer></script>
   </head>
   <body class="{% block body_class %}{% endblock %}">
-    {% block nav %}
-    <header class="topnav">
-      <div class="topnav-inner">
-        <span class="brand"><span class="brand-mark" aria-hidden="true">C</span>Cowork Booking</span>
-        <span class="topnav-right">Access</span>
-      </div>
-    </header>
-    {% endblock %}
+    {% block nav %}{% endblock %}
     {% block content %}{% endblock %}
   </body>
 </html>
