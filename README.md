@@ -89,4 +89,6 @@ and **segno 1.6.6**, the one extra runtime dependency, which draws the ticket QR
 
 `app.py` (routes, schema, startup checks), `access.py` (codes, validation, window and kiosk
 decisions), `clock.py` (`clock.now()`, the test clock), `templates/` (`base.html`, `ticket.html`,
-`checkin.html`), `static/style.css`.
+`checkin.html`, `404.html`), `static/style.css` (the shared design system, copied unchanged from
+`drafts/design/style.css`), `static/access.css` (e-ticket and kiosk only) and `static/access.js`
+(progressive enhancement: Print ticket, clearing an old kiosk result).
