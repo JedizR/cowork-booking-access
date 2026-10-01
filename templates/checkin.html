@@ -1,50 +1,126 @@
 {% extends "base.html" %}
 {% block title %}Check-in kiosk{% endblock %}
+{% block body_class %}kiosk{% endblock %}
+
+{# Scan results in plain words (AXS-R13, AXS-R14). The reason text is the server's, word for word. #}
+{% set titles = {"not_open_yet": "Not open yet", "closed": "Closed", "wrong_room": "Wrong room",
+                 "revoked": "Ticket cancelled"} %}
+{% set log_badges = {"ok": ("badge-solid", "Door unlocked"), "not_open_yet": ("badge-outline", "Not open yet"),
+                     "wrong_room": ("badge-outline", "Wrong room"), "closed": ("badge-muted", "Closed"),
+                     "revoked": ("badge-muted", "Cancelled"), "unknown_code": ("badge-muted", "Not recognised")} %}
+
+{% macro room_picker(rooms, selected) %}
+  <form class="room-grid" method="post" action="/checkin">
+    {% for room in rooms %}
+      <button class="room-card" type="submit" name="space_id" value="{{ room.id }}"
+        {%- if selected and room.id == selected.id %} aria-current="true"{% endif %}>
+        <span class="room-card-no">Room {{ room.id }}</span>
+        <span class="room-card-name">{{ room.name }}</span>
+        {% if selected and room.id == selected.id %}<span class="room-card-tag">This kiosk</span>{% endif %}
+      </button>
+    {% endfor %}
+  </form>
+{% endmacro %}
+
+{% block nav %}
+  <header class="kiosk-bar">
+    <div class="kiosk-bar-inner">
+      <span class="brand"><span class="brand-mark" aria-hidden="true">C</span>Check-in</span>
+      {% if selected %}
+        <span class="kiosk-room" data-selected-space-id="{{ selected.id }}">Room: <strong>{{ selected.label }}</strong></span>
+        <details class="kiosk-switch">
+          <summary class="topnav-btn">Change room</summary>
+          <div class="kiosk-switch-panel">
+            <p class="kiosk-switch-title">Choose this kiosk's room</p>
+            {{ room_picker(rooms, selected) }}
+          </div>
+        </details>
+      {% endif %}
+    </div>
+  </header>
+{% endblock %}
+
 {% block content %}
-  <h1>Check-in kiosk</h1>
-  <p class="hint">The door lock is mocked: an ok result means the scan was accepted, not that a door opened.</p>
-
-  {% for note in notes %}<p class="message">{{ note }}</p>{% endfor %}
-
-  {% if not rooms %}
-    <p class="message">No rooms yet: a room appears after its first ticket is issued</p>
-  {% else %}
-    <form method="post" action="/checkin">
-      <label for="space_id">Room</label>
-      <select id="space_id" name="space_id">
-        {% for room in rooms %}
-          <option value="{{ room.id }}"{% if selected and room.id == selected.id %} selected{% endif %}>{{ room.label }}</option>
+  <main class="kiosk-main">
+    {% if notes %}
+      <ul class="flashes">
+        {% for note in notes %}
+          <li class="flash flash-error" role="alert"><span class="flash-icon" aria-hidden="true"></span><span>{{ note }}</span></li>
         {% endfor %}
-      </select>
-      <button type="submit">Select room</button>
-    </form>
+      </ul>
+    {% endif %}
 
-    {% if selected %}
-      <h2 data-selected-space-id="{{ selected.id }}">{{ selected.label }}</h2>
-      {% for result, reason in results %}
-        <div class="scan-result result-{{ result }}" data-result="{{ result }}">
-          <strong>{{ result }}</strong> — {{ reason }}
-          <span class="hint">at {{ selected.label }}</span>
+    {% if not rooms %}
+      <div class="empty">
+        <div class="empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16"/><path d="M2 21h20"/><circle cx="15" cy="12" r="1"/></svg>
         </div>
-      {% endfor %}
-      <form method="post" action="/checkin">
-        <label for="code">Ticket code</label>
-        <input id="code" name="code" autofocus autocomplete="off" placeholder="XXXX-XXXX">
-        <button type="submit">Check in</button>
+        <h1 class="empty-title">Nothing to check in yet</h1>
+        <p class="empty-text">No rooms yet: a room appears after its first ticket is issued</p>
+        <a class="btn btn-secondary" href="/checkin">Refresh</a>
+      </div>
+
+    {% elif not selected %}
+      <header class="kiosk-head">
+        <p class="eyebrow">Kiosk set-up</p>
+        <h1 class="kiosk-title">Which room is this kiosk at?</h1>
+        <p class="kiosk-sub">Every code is checked against this room. The kiosk remembers it until you change it.</p>
+      </header>
+      {{ room_picker(rooms, selected) }}
+
+    {% else %}
+      <form class="kiosk-form" method="post" action="/checkin">
+        <label class="kiosk-label" for="code">Scan or type the ticket code</label>
+        <input class="kiosk-input" id="code" name="code" autofocus autocomplete="off" autocapitalize="characters"
+               autocorrect="off" spellcheck="false" placeholder="XXXX-XXXX" maxlength="200">
+        <button class="btn btn-primary btn-lg btn-block" type="submit">Check in</button>
       </form>
 
-      <h2>Last 10 scans at this room</h2>
-      {% if scans %}
-        <ul class="list">
-          {% for s in scans %}
-            <li data-scan-result="{{ s.result }}" data-scan-last4="{{ s.last4 }}">{{ s.time }} · ••••-{{ s.last4 }} · {{ s.result }}</li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="hint">No scans yet.</p>
-      {% endif %}
-    {% else %}
-      <p class="message">Select the room first</p>
+      {% for r in results %}
+        <div class="kiosk-result{% if r.result == 'ok' %} is-ok{% endif %}" data-result="{{ r.result }}" role="{{ 'status' if r.result == 'ok' else 'alert' }}">
+          <span class="kiosk-result-icon" aria-hidden="true"></span>
+          {% if r.result in titles %}
+            <p class="kiosk-result-title">{{ titles[r.result] }}</p>
+            <p class="kiosk-result-reason">
+              {%- if r.result == "not_open_yet" %}Check-in {{ r.reason }}. Ask the guest to come back then.
+              {%- elif r.result == "closed" %}{{ r.reason }}. The booking has ended.
+              {%- elif r.result == "revoked" %}{{ r.reason }}. It no longer opens any door.
+              {%- else %}{{ r.reason }}. Send the guest there.{% endif -%}
+            </p>
+          {% else %}
+            <p class="kiosk-result-title">{{ r.reason }}</p>
+            <p class="kiosk-result-reason">
+              {%- if r.result == "ok" %}Booked {{ r.opens }}–{{ r.closes }}. Re-entry is fine until {{ r.closes }}.
+              {%- else %}Check the code on the e-ticket and try again. A booking reference (BK-…) is not a ticket code.{% endif -%}
+            </p>
+          {% endif %}
+          <p class="kiosk-result-meta">Code ••••-{{ r.last4 }} at {{ selected.label }}</p>
+        </div>
+      {% endfor %}
+
+      <section class="kiosk-log" aria-labelledby="log-title">
+        <h2 class="kiosk-log-title" id="log-title">Last 10 scans at this room</h2>
+        {% if scans %}
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Time</th><th>Code</th><th>Result</th></tr></thead>
+              <tbody>
+                {% for s in scans %}
+                  {% set b = log_badges.get(s.result, ("badge-muted", s.result)) %}
+                  <tr data-scan-result="{{ s.result }}" data-scan-last4="{{ s.last4 }}">
+                    <td class="num">{{ s.time }}</td>
+                    <td class="kiosk-log-code">••••-{{ s.last4 }}</td>
+                    <td><span class="badge {{ b[0] }}">{{ b[1] }}</span></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="kiosk-log-empty">No scans at this room yet. Each scan shows here with its time and result.</p>
+        {% endif %}
+      </section>
     {% endif %}
-  {% endif %}
+  </main>
+  <footer class="kiosk-foot">The door lock is mocked: an ok result means the scan was accepted, not that a door opened.</footer>
 {% endblock %}

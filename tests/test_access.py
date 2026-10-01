@@ -334,6 +334,28 @@ def test_axs_r10_checked_in_ticket_says_reentry_until_end(client):
     assert 'data-status="checked_in">Checked in<' in page and "re-entry until 10:30" in page
 
 
+def test_axs_r13_r15_ok_result_shows_window_and_never_the_full_code(client):
+    code = issue(client).get_json()["ticket_code"]
+    select_room(client, 1)
+    set_clock(client, "2026-10-07T09:05:00+07:00")
+    page = scan(client, code)
+    assert "Booked 09:00–10:30. Re-entry is fine until 10:30." in page
+    assert f"Code ••••-{code[-4:]} at Meeting Room A (room 1)" in page
+    assert code not in page and code.replace("-", "") not in page
+
+
+def test_axs_r11_room_picker_lists_rooms_as_cards_and_hides_input_until_chosen(client):
+    issue(client)
+    issue(client, booking_reference="BK-3MZ8QT", space_id=2, space_name="Focus Pod 1")
+    page = client.get("/checkin", headers=KIOSK).get_data(as_text=True)
+    assert 'name="space_id" value="1"' in page and 'name="space_id" value="2"' in page
+    assert 'name="code"' not in page and "data-selected-space-id" not in page
+    select_room(client, 2)
+    page = client.get("/checkin", headers=KIOSK).get_data(as_text=True)
+    assert 'name="code"' in page and "autofocus" in page
+    assert 'value="2" aria-current="true"' in page
+
+
 def test_duration_wording():
     from datetime import datetime, timedelta
 

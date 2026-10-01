@@ -35,6 +35,56 @@
 .ticket-actions { margin-top: var(--sp-5); }
 .ticket-note { max-width: 46ch; margin: var(--sp-4) auto 0; text-align: center; }
 
+/* ---- Kiosk ---- */
+.kiosk-bar { position: relative; }
+.kiosk-switch > summary { list-style: none; }
+.kiosk-switch > summary::-webkit-details-marker { display: none; }
+.kiosk-switch[open] > summary { background: rgba(255, 255, 255, 0.14); }
+.kiosk-switch-panel {
+  position: absolute; left: 0; right: 0; top: 100%; z-index: 50;
+  padding: var(--sp-5) var(--gutter) var(--sp-6); background: var(--parchment); color: var(--ink);
+  border-bottom: 1px solid var(--hairline);
+}
+.kiosk-switch-panel > * { max-width: 912px; margin-left: auto; margin-right: auto; }
+.kiosk-switch-title { font-size: var(--fs-body); font-weight: 600; margin-bottom: var(--sp-4); }
+
+.kiosk-head { text-align: center; margin-bottom: var(--sp-3); }
+.kiosk-head .eyebrow { margin-bottom: var(--sp-2); }
+.kiosk-title { font-size: var(--fs-title); line-height: 1.12; letter-spacing: -0.022em; }
+.kiosk-sub { margin: var(--sp-2) auto 0; max-width: 46ch; color: var(--muted); }
+
+.room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-4); }
+.kiosk-main .room-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.room-card {
+  appearance: none; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1);
+  min-height: 132px; padding: var(--sp-5); margin: 0;
+  border: 1px solid var(--hairline); border-radius: var(--r-lg); background: var(--canvas); color: var(--ink);
+  font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.room-card:hover { border-color: var(--ink); }
+.room-card:active { transform: scale(0.98); }
+.room-card-no { font-size: var(--fs-fine); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.room-card-name { margin-top: auto; font-size: var(--fs-tagline); font-weight: 600; line-height: 1.19; letter-spacing: -0.012em; }
+.room-card-tag { font-size: var(--fs-caption); color: var(--on-dark-muted); }
+.room-card[aria-current="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-dark); }
+.room-card[aria-current="true"] .room-card-no { color: var(--on-dark-muted); }
+.room-card[aria-current="true"]:focus-visible { outline-color: var(--black); }
+
+/* Always focused: a thicker edge instead of a second ring around the 2 px border. */
+.kiosk-input:focus-visible { outline: 0; border-width: 4px; padding: 0 calc(var(--sp-5) - 2px); }
+.kiosk-result-meta { grid-column: 2; margin: var(--sp-2) 0 0; font-size: var(--fs-caption); color: var(--muted); }
+.kiosk-result.is-ok .kiosk-result-meta { color: var(--on-dark-muted); }
+.kiosk-result-title { font-size: var(--fs-title); }
+.kiosk-result.is-ok .kiosk-result-title { font-size: var(--fs-display); }
+
+.kiosk-log { margin-top: var(--sp-5); }
+.kiosk-log-title { font-size: var(--fs-body); font-weight: 600; line-height: 1.24; margin-bottom: var(--sp-3); }
+.kiosk-log .table td { padding-top: 10px; padding-bottom: 10px; }
+.kiosk-log-code { letter-spacing: 0.04em; }
+.kiosk-log-empty { margin: 0; padding: var(--sp-4) var(--sp-5); border: 1px dashed var(--fill-strong); border-radius: var(--r-lg); color: var(--muted); font-size: var(--fs-callout); }
+.kiosk-foot { padding: var(--sp-5) var(--gutter) var(--sp-6); text-align: center; font-size: var(--fs-fine); color: var(--muted); }
+
 @media (max-width: 640px) {
   .ticket-page { padding: var(--sp-5) var(--gutter); }
   .ticket-top { padding: var(--sp-5); }
@@ -46,4 +96,9 @@
   .ticket-code { font-size: 38px; }
   .ticket-qr svg { zoom: 1.5; }   /* 9 px modules: still whole pixels */
   .ticket-ref { padding: var(--sp-3) var(--sp-5) var(--sp-4); }
+
+  .kiosk-switch { margin-left: auto; }
+  .kiosk-result-meta { grid-column: auto; }
+  .room-grid, .kiosk-main .room-grid { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
+  .room-card { min-height: 96px; }
 }

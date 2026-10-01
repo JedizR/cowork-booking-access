@@ -264,7 +264,11 @@ def create_app(database_url: str | None = None) -> Flask:
                 " WHERE ticket_code IS NOT NULL ORDER BY space_id, valid_from DESC"
             )
             return [
-                {"id": r["space_id"], "label": access.room_label(r["space_id"], r["space_name"])}
+                {
+                    "id": r["space_id"],
+                    "name": r["space_name"],
+                    "label": access.room_label(r["space_id"], r["space_name"]),
+                }
                 for r in cur.fetchall()
             ]
 
@@ -308,8 +312,8 @@ def create_app(database_url: str | None = None) -> Flask:
             rooms=room_list,
             selected=selected,
             scans=scans,
-            results=[(c[7:], m) for c, m in messages if c.startswith("result:")],
-            notes=[m for c, m in messages if not c.startswith("result:")],
+            results=[m for c, m in messages if c == "result"],
+            notes=[m for c, m in messages if c != "result"],
         )
 
     def scan(raw: str) -> None:
@@ -338,7 +342,12 @@ def create_app(database_url: str | None = None) -> Flask:
                 " VALUES (%s, %s, %s, %s, %s)",
                 (now, room_id, code[:200], result, grant["grant_id"] if grant else None),
             )
-        flash(reason, "result:" + result)
+        # The screen shows only the last 4 symbols (AXS-R15) and, for ok, the guest's window.
+        shown = {"result": result, "reason": reason, "last4": code[-4:]}
+        if result == "ok":
+            shown["opens"] = access.when(grant["valid_from"], now)
+            shown["closes"] = access.when(grant["valid_until"], now)
+        flash(shown, "result")
 
     @app.errorhandler(404)
     def not_found(_):
