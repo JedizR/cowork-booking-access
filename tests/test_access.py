@@ -180,6 +180,8 @@ def test_axs_r10_badge_follows_state_and_clock(client):
     client.post("/grants/BK-7KQ2M9/revoke", headers=API)
     page = ticket_page(client, body["ticket_url"]).get_data(as_text=True)
     assert 'data-status="revoked">Cancelled<' in page and "CANCELLED" in page
+    # The band sits in the head of the ticket; nothing is drawn over the code or the QR.
+    assert page.index("CANCELLED") < page.index("data-ticket-code") and "ticket-stamp" not in page
 
 
 # ---- Kiosk ----

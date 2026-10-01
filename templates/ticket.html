@@ -6,6 +6,10 @@
   {% set valid = badge in ("Issued", "Checked in") %}
   <main class="ticket-wrap">
     <article class="ticket{% if badge == 'Cancelled' %} is-cancelled{% elif badge == 'Expired' %} is-expired{% endif %}" aria-labelledby="ticket-title">
+      {# Cancelled is a band across the head of the ticket, never a stamp over the code or the QR. #}
+      {% if badge == "Cancelled" %}
+        <p class="ticket-band"><strong>CANCELLED</strong><span>This code opens no door</span></p>
+      {% endif %}
       <div class="ticket-top">
         <div class="ticket-head">
           <span class="ticket-brand"><span class="brand-mark" aria-hidden="true">C</span>Cowork Booking</span>
@@ -35,13 +39,9 @@
           <p class="eyebrow">Ticket code</p>
           <p class="ticket-code" data-ticket-code="{{ code }}">{{ code }}</p>
           {% if valid %}<p class="ticket-hint">Show the code or QR at the room's kiosk</p>
-          {%- elif badge == "Expired" %}<p class="ticket-hint">This code no longer opens the door</p>
-          {%- else %}<p class="ticket-hint">The booking was cancelled, so this code opens no door</p>{% endif %}
+          {%- elif badge == "Expired" %}<p class="ticket-hint">This code no longer opens the door</p>{% endif %}
         </div>
-        <div class="ticket-qr-wrap">
-          <div class="ticket-qr" role="img" aria-label="QR code for {{ code }}">{{ qr }}</div>
-          {% if badge == "Cancelled" %}<div class="ticket-stamp" aria-hidden="true">CANCELLED</div>{% endif %}
-        </div>
+        <div class="ticket-qr" role="img" aria-label="QR code for {{ code }}">{{ qr }}</div>
       </div>
       <p class="ticket-ref">Booking ref (not for entry) {{ grant.booking_reference }}</p>
     </article>

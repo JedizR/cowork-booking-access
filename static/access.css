@@ -28,18 +28,20 @@
 .ticket-code { font-size: 44px; letter-spacing: 0.08em; }
 .ticket-hint { margin-top: var(--sp-3); font-size: var(--fs-callout); color: var(--ink-80); }
 /* segno draws 6 px modules with a 4-module quiet zone: keep its own size so edges stay crisp. */
-.ticket-qr-wrap { position: relative; }
 .ticket-qr { width: auto; height: auto; margin: 0; padding: 0; line-height: 0; overflow: hidden; }
 .ticket-qr svg { width: auto; height: auto; }
 .ticket-ref { display: block; padding: var(--sp-3) var(--sp-6) var(--sp-4); }
 /* Ended tickets: the code stays legible for support, the QR stops inviting a scan.
-   Cancelled adds the stamp, always on the QR, at every width. */
+   Cancelled says so in a band across the head; nothing is drawn over the code or the QR. */
 .ticket.is-expired .ticket-qr, .ticket.is-cancelled .ticket-qr { opacity: 0.16; }
-.ticket.is-expired .ticket-code, .ticket.is-cancelled .ticket-code { opacity: 0.4; }
-.ticket.is-cancelled .ticket-stamp {
-  top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-12deg);
-  font-size: 22px; padding: 6px 16px; letter-spacing: 0.12em; white-space: nowrap;
+.ticket.is-expired .ticket-code, .ticket.is-cancelled .ticket-code { opacity: 0.4; color: var(--muted); }
+.ticket.is-cancelled .ticket-code { text-decoration: line-through; text-decoration-thickness: 3px; }
+.ticket-band {
+  display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-1) var(--sp-4); flex-wrap: wrap;
+  margin: 0; padding: 14px var(--sp-6); background: var(--ink); color: var(--on-dark); font-size: var(--fs-callout);
 }
+.ticket-band strong { font-size: var(--fs-tagline); font-weight: 700; letter-spacing: 0.16em; line-height: 1.1; }
+.ticket-band span { color: var(--on-dark-muted); }
 .ticket-actions { margin-top: var(--sp-5); }
 .ticket-note { max-width: 46ch; margin: var(--sp-4) auto 0; text-align: center; }
 
@@ -109,6 +111,7 @@
 @media (max-width: 640px) {
   .ticket-page { padding: var(--sp-5) var(--gutter); }
   .ticket-top, .notfound .ticket-top { padding: var(--sp-5); }
+  .ticket-band { padding: 12px var(--sp-5); }
   .ticket-meta dd, .ticket-window strong { font-size: 18px; }
   .ticket-window { padding: 12px var(--sp-4); }
   .ticket-divider { margin: var(--sp-2) var(--sp-5); }
