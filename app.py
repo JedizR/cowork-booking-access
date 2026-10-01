@@ -236,7 +236,6 @@ def create_app(database_url: str | None = None) -> Flask:
         now = clock.now()
         code = access.show_code(grant["ticket_code"])
         qr = Markup(segno.make(code, micro=False).svg_inline(scale=6))  # AXS-R07
-        start = grant["valid_from"].astimezone(LOCAL_TZ)
         page = render_template(
             "ticket.html",
             grant=grant,
@@ -244,8 +243,8 @@ def create_app(database_url: str | None = None) -> Flask:
             qr=qr,
             badge=access.badge(grant, now),
             opens_later=now < grant["valid_from"],
-            day=f"{start:%a} {start.day} {start:%b %Y}",
-            start=f"{start:%H:%M}",
+            day=access.day(grant["valid_from"], now),
+            start=grant["valid_from"].astimezone(LOCAL_TZ).strftime("%H:%M"),
             end=grant["valid_until"].astimezone(LOCAL_TZ).strftime("%H:%M"),
             length=access.duration(grant["valid_from"], grant["valid_until"]),
         )

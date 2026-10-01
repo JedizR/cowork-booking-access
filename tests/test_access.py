@@ -174,7 +174,7 @@ def test_axs_r10_badge_follows_state_and_clock(client):
     body = issue(client).get_json()
     set_clock(client, "2026-10-07T09:00:00+07:00")
     page = ticket_page(client, body["ticket_url"]).get_data(as_text=True)
-    assert 'data-status="issued">Issued<' in page and "Check-in 09:00-10:30" in page
+    assert 'data-status="issued">Issued<' in page and "Check-in 09:00–10:30" in page
     set_clock(client, "2026-10-07T10:30:00+07:00")
     assert ">Expired<" in ticket_page(client, body["ticket_url"]).get_data(as_text=True)
     client.post("/grants/BK-7KQ2M9/revoke", headers=API)
@@ -318,7 +318,7 @@ def test_axs_r10_ticket_state_line_follows_window_and_status(client):
     for now, line in states:
         set_clock(client, now)
         page = ticket_page(client, url).get_data(as_text=True)
-        assert line in page and "Wed 7 Oct 2026" in page and "1 h 30 min" in page
+        assert line in page and "<dd>Wed 7 Oct</dd>" in page and "1 h 30 min" in page
     assert "Show the code or QR" not in page and "Anyone with this link" not in page
     client.post("/grants/BK-7KQ2M9/revoke", headers=API)
     page = ticket_page(client, url).get_data(as_text=True)
@@ -359,6 +359,17 @@ def test_axs_r11_room_picker_lists_rooms_as_cards_and_hides_input_until_chosen(c
     page = client.get("/checkin?change=room&space_id=1", headers=KIOSK).get_data(as_text=True)
     assert 'value="2" aria-current="true"' in page and 'name="code"' not in page
     assert 'data-selected-space-id="2"' in page and "Keep Focus Pod 1 (room 2)" in page
+
+
+def test_day_wording_adds_the_year_only_off_this_year():
+    from datetime import datetime
+
+    start = datetime(2026, 10, 3, 9, 0, tzinfo=access.LOCAL_TZ)
+    assert access.day(start, datetime(2026, 10, 1, 12, 0, tzinfo=access.LOCAL_TZ)) == "Sat 3 Oct"
+    assert access.day(start, datetime(2027, 1, 2, 12, 0, tzinfo=access.LOCAL_TZ)) == "Sat 3 Oct 2026"
+    # Bangkok's date, not UTC's: 23:30 UTC on 2 Oct is 06:30 on Sat 3 Oct.
+    late = datetime(2026, 10, 2, 23, 30, tzinfo=access.timezone.utc)
+    assert access.day(late, start) == "Sat 3 Oct"
 
 
 def test_duration_wording():

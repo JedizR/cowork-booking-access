@@ -21,9 +21,9 @@
           <div><dt>Date</dt><dd>{{ day }}</dd></div>
           <div><dt>Length</dt><dd>{{ length }}</dd></div>
         </dl>
-        {# The window is the booking time (buffer 0, D21), so it is shown once. Wording pinned by CONTRACT.md. #}
+        {# The window is the booking time (buffer 0, D21), so it is shown once. #}
         <p class="ticket-window">
-          <strong>Check-in {{ start }}-{{ end }}</strong>
+          <strong>Check-in {{ start }}–{{ end }}</strong>
           <span>
             {%- if badge == "Cancelled" %}No longer valid
             {%- elif badge == "Expired" %}Closed
