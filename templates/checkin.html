@@ -2,17 +2,16 @@
 {% block title %}Check-in kiosk{% endblock %}
 {% block body_class %}kiosk{% endblock %}
 
-{# Every result has one shape: the headline is the server's reason word for word (AXS-R13, AXS-R14),
-   then what Staff does next, then the code and the room. The log badges use the same words. #}
+{# Every result has one shape: a short title (the same words as its badge in the scan log), then the server's
+   reason word for word (AXS-R13, AXS-R14) with what Staff does next, then the code and the room.
+   Only "Door unlocked" is solid; every refusal is a grey badge, so an outlined pill always means a tap. #}
 {% set operator_line = "If the guest disagrees, phone the Operator." %}
-{% set next_steps = {"not_open_yet": "Ask the guest to come back then.",
-                     "wrong_room": "Send the guest there.",
+{% set titles = {"ok": "Door unlocked", "not_open_yet": "Not open yet", "wrong_room": "Wrong room",
+                 "closed": "Closed", "revoked": "Cancelled", "unknown_code": "Not recognised"} %}
+{% set next_steps = {"wrong_room": "Send the guest there.",
                      "closed": "The booking has ended. " ~ operator_line,
                      "revoked": "It opens no door. " ~ operator_line,
                      "unknown_code": "Check the code on the e-ticket and try again."} %}
-{% set log_badges = {"ok": ("badge-solid", "Door unlocked"), "not_open_yet": ("badge-outline", "Not open yet"),
-                     "wrong_room": ("badge-outline", "Wrong room"), "closed": ("badge-muted", "Closed"),
-                     "revoked": ("badge-muted", "Cancelled"), "unknown_code": ("badge-muted", "Not recognised")} %}
 
 {% block nav %}
   <header class="kiosk-bar">
@@ -78,14 +77,17 @@
         <div class="kiosk-result{% if r.result == 'ok' %} is-ok{% elif waiting %} is-wait{% endif %}" data-result="{{ r.result }}" role="{{ 'status' if r.result == 'ok' else 'alert' }}">
           <span class="kiosk-result-icon" aria-hidden="true"></span>
           <p class="kiosk-result-title">
-            {%- if r.result == "not_open_yet" %}Check-in {{ r.reason }}{% if r.today %} today{% endif %}
-            {%- else %}{{ r.reason }}{% endif -%}
+            {%- if r.result == "ok" %}<span class="nowrap">Door unlocked</span> <span class="kiosk-result-mock">(mock)</span>
+            {%- elif r.result == "unknown_code" %}{{ r.reason }}
+            {%- else %}{{ titles[r.result] }}{% endif -%}
           </p>
           <p class="kiosk-result-reason">
             {%- if r.result == "ok" %}Booked {{ r.opens }}–{{ r.closes }}. Re-entry is fine until {{ r.closes }}.
-            {%- elif r.result == "not_open_yet" and not r.today %}Ask the guest to come back on <span class="nowrap">{{ r.day }}</span>.
+            {%- elif r.result == "not_open_yet" %}Check-in <span class="nowrap">{{ r.reason }}</span>{% if r.today %} today. Ask the guest to come back then.
+              {%- else %}. Ask the guest to come back on <span class="nowrap">{{ r.day }}</span>.{% endif %}
             {%- elif r.booking_ref %}That is a booking reference (BK-…), not a ticket code. Ask for the 8-symbol code on the e-ticket.
-            {%- else %}{{ next_steps[r.result] }}{% endif -%}
+            {%- elif r.result == "unknown_code" %}{{ next_steps.unknown_code }}
+            {%- else %}{{ r.reason }}. {{ next_steps[r.result] }}{% endif -%}
           </p>
           <p class="kiosk-result-meta">Code ••••-{{ r.last4 }} at {{ selected.label }}</p>
         </div>
@@ -106,11 +108,11 @@
               <thead><tr><th>Time</th><th>Code</th><th>Result</th></tr></thead>
               <tbody>
                 {% for s in scans %}
-                  {% set b = ("badge-muted", "Booking ref") if s.booking_ref else log_badges.get(s.result, ("badge-muted", s.result)) %}
+                  {% set label = "Booking ref" if s.booking_ref else titles.get(s.result, s.result) %}
                   <tr data-scan-result="{{ s.result }}" data-scan-last4="{{ s.last4 }}">
                     <td class="num">{{ s.time }}</td>
                     <td class="kiosk-log-code">••••-{{ s.last4 }}</td>
-                    <td><span class="badge {{ b[0] }}">{{ b[1] }}</span></td>
+                    <td><span class="badge {{ 'badge-solid' if s.result == 'ok' else 'badge-muted' }}">{{ label }}</span></td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -122,5 +124,5 @@
       </section>
     {% endif %}
   </main>
-  <footer class="kiosk-foot">The door lock is mocked: an ok result means the scan was accepted, not that a door opened.</footer>
+  <footer class="kiosk-foot">The door lock is mocked: “Door unlocked” means the scan was accepted, not that a door opened.</footer>
 {% endblock %}

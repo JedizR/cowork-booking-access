@@ -216,7 +216,7 @@ def test_axs_r12_r13_normalised_code_opens_inside_window_and_reentry(client):
     select_room(client, 1)
     set_clock(client, "2026-10-07T09:00:00+07:00")
     page = scan(client, " " + code.lower().replace("-", " - ") + " ")
-    assert 'data-result="ok"' in page and "Door unlocked (mock)" in page
+    assert 'data-result="ok"' in page and "Door unlocked (mock)" in re.sub(r"<[^>]+>", "", page)
     set_clock(client, "2026-10-07T10:29:00+07:00")
     assert 'data-result="ok"' in scan(client, code)
 
@@ -249,8 +249,8 @@ def test_axs_r14_order_revoked_before_wrong_room(client):
     select_room(client, 2)
     set_clock(client, "2026-10-07T09:00:00+07:00")
     page = scan(client, code)
-    assert 'data-result="wrong_room"' in page
-    assert "This ticket is for Meeting Room A (room 1)" in page
+    assert 'data-result="wrong_room"' in page and ">Wrong room</p>" in page
+    assert "This ticket is for Meeting Room A (room 1). Send the guest there." in page
     client.post("/grants/BK-7KQ2M9/revoke", headers=API)
     page = scan(client, code)
     assert 'data-result="revoked"' in page and "This ticket was cancelled" in page
@@ -389,7 +389,8 @@ def test_axs_r08_r13_kiosk_result_comes_first_and_names_the_next_step(client):
     select_room(client, 1)
     set_clock(client, "2026-10-07T08:50:00+07:00")
     page = scan(client, code)
-    assert "Check-in opens 09:00 today<" in page and "Ask the guest to come back then." in page
+    shown = re.sub(r"<[^>]+>", "", page)
+    assert ">Not open yet</p>" in page and "Check-in opens 09:00 today. Ask the guest to come back then." in shown
     assert '<time class="num">08:50</time>' in page  # the bar's "Now" follows clock.now()
     assert page.index("data-result=") < page.index('name="code"')
     page = scan(client, "bk-7kq2m9")
@@ -398,3 +399,15 @@ def test_axs_r08_r13_kiosk_result_comes_first_and_names_the_next_step(client):
     assert ">Booking ref</span>" in page and "••••-Q2M9" in page  # still masked (AXS-R15 row 3)
     missing = client.get("/t/AAAAAAAAAAAAAAAAAAAAAA").get_data(as_text=True)
     assert 'href="http://localhost:8001/bookings/mine"' in missing
+
+
+def test_axs_r15_log_badges_are_solid_only_for_door_unlocked(client):
+    code = issue(client).get_json()["ticket_code"]
+    select_room(client, 1)
+    set_clock(client, "2026-10-07T08:50:00+07:00")
+    scan(client, code)
+    set_clock(client, "2026-10-07T09:00:00+07:00")
+    page = scan(client, code)
+    assert '<span class="badge badge-solid">Door unlocked</span>' in page
+    assert '<span class="badge badge-muted">Not open yet</span>' in page and "badge-outline" not in page
+    assert "an ok result" not in page and "“Door unlocked” means the scan was accepted" in page
