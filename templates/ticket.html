@@ -1,19 +1,50 @@
 {% extends "base.html" %}
-{% block title %}E-ticket{% endblock %}
+{% block title %}E-ticket {{ grant.space_name }}{% endblock %}
+{% block body_class %}ticket-page{% endblock %}
 {% block nav %}{% endblock %}
 {% block content %}
-  <article class="ticket">
-    <p class="brand">Cowork Booking e-ticket</p>
-    <h1>{{ grant.space_name }}</h1>
-    <p>{{ day }}, {{ start }}-{{ end }} (Bangkok time)</p>
-    <p>Check-in {{ start }}-{{ end }}</p>
-    <p><span class="badge badge-{{ grant.status }}" data-status="{{ grant.status }}">{{ badge }}</span></p>
-    <div class="ticket-credential{% if grant.status == 'revoked' %} is-cancelled{% endif %}">
-      <p class="ticket-code" data-ticket-code="{{ code }}">{{ code }}</p>
-      <div class="ticket-qr">{{ qr }}</div>
-      {% if grant.status == 'revoked' %}<div class="overlay">CANCELLED</div>{% endif %}
+  {# AXS-R10: badge precedence Cancelled > Expired > Checked in > Issued; no navigation, no form. #}
+  {% set valid = badge in ("Issued", "Checked in") %}
+  <main class="ticket-wrap">
+    <article class="ticket{% if grant.status == 'revoked' %} is-cancelled{% endif %}" aria-labelledby="ticket-title">
+      <div class="ticket-top">
+        <div class="ticket-head">
+          <span class="ticket-brand"><span class="brand-mark" aria-hidden="true">C</span>Cowork Booking</span>
+          <span class="badge {{ 'badge-solid' if valid else 'badge-muted' }}" data-status="{{ grant.status }}">{{ badge }}</span>
+        </div>
+        <h1 class="ticket-title" id="ticket-title">{{ grant.space_name }}</h1>
+        <p class="ticket-room">Room {{ grant.space_id }} · E-ticket</p>
+        <dl class="ticket-meta">
+          <div><dt>Date</dt><dd>{{ day }}</dd></div>
+          <div><dt>Time</dt><dd>{{ start }}–{{ end }} <span class="ticket-length">{{ length }}</span></dd></div>
+        </dl>
+        <p class="ticket-window">
+          <strong>Check-in {{ start }}-{{ end }}</strong>
+          <span>
+            {%- if badge == "Cancelled" %}No longer valid
+            {%- elif badge == "Expired" %}Closed
+            {%- elif badge == "Checked in" %}Checked in · re-entry until {{ end }}
+            {%- elif opens_later %}Valid only in this window
+            {%- else %}Open now{% endif -%}
+          </span>
+        </p>
+      </div>
+      <div class="ticket-divider" aria-hidden="true"></div>
+      <div class="ticket-body">
+        <div class="ticket-code-block">
+          <p class="eyebrow">Ticket code</p>
+          <p class="ticket-code" data-ticket-code="{{ code }}">{{ code }}</p>
+          {% if valid %}<p class="ticket-hint">Show the code or QR at the room's kiosk</p>
+          {%- elif badge == "Expired" %}<p class="ticket-hint">This code no longer opens the door</p>{% endif %}
+        </div>
+        <div class="ticket-qr" role="img" aria-label="QR code for {{ code }}">{{ qr }}</div>
+        {% if grant.status == "revoked" %}<div class="ticket-stamp" aria-hidden="true">CANCELLED</div>{% endif %}
+      </div>
+      <p class="ticket-ref">Booking ref (not for entry) {{ grant.booking_reference }}</p>
+    </article>
+    <div class="ticket-actions">
+      <button class="btn btn-secondary btn-utility" type="button" data-print hidden>Print ticket</button>
     </div>
-    <p class="hint">Show the code or the QR at the room's check-in kiosk.</p>
-    <p class="small">Booking ref (not for entry) {{ grant.booking_reference }}</p>
-  </article>
+    <p class="ticket-note fine no-print">Times are in Bangkok (UTC+7).{% if valid %} Anyone with this link can use the code during the check-in window.{% endif %}</p>
+  </main>
 {% endblock %}

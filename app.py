@@ -229,15 +229,18 @@ def create_app(database_url: str | None = None) -> Flask:
         now = clock.now()
         code = access.show_code(grant["ticket_code"])
         qr = Markup(segno.make(code, micro=False).svg_inline(scale=6))  # AXS-R07
+        start = grant["valid_from"].astimezone(LOCAL_TZ)
         page = render_template(
             "ticket.html",
             grant=grant,
             code=code,
             qr=qr,
             badge=access.badge(grant, now),
-            day=grant["valid_from"].astimezone(LOCAL_TZ).strftime("%Y-%m-%d"),
-            start=grant["valid_from"].astimezone(LOCAL_TZ).strftime("%H:%M"),
+            opens_later=now < grant["valid_from"],
+            day=f"{start:%a} {start.day} {start:%b %Y}",
+            start=f"{start:%H:%M}",
             end=grant["valid_until"].astimezone(LOCAL_TZ).strftime("%H:%M"),
+            length=access.duration(grant["valid_from"], grant["valid_until"]),
         )
         return page, 200, {"Referrer-Policy": "no-referrer"}
 
@@ -336,6 +339,10 @@ def create_app(database_url: str | None = None) -> Flask:
                 (now, room_id, code[:200], result, grant["grant_id"] if grant else None),
             )
         flash(reason, "result:" + result)
+
+    @app.errorhandler(404)
+    def not_found(_):
+        return render_template("404.html"), 404
 
     # ---- Ops ----
 

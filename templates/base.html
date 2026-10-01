@@ -3,16 +3,21 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Cowork Booking — {% block title %}{% endblock %}</title>
+    <title>{% block title %}{% endblock %} · Cowork Booking</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='access.css') }}">
+    <script src="{{ url_for('static', filename='access.js') }}" defer></script>
   </head>
-  <body>
+  <body class="{% block body_class %}{% endblock %}">
     {% block nav %}
-    <nav class="site-nav">
-      <span class="brand">Cowork Booking</span>
-      <span class="spacer"></span>
-      Access
-    </nav>
+    <header class="topnav">
+      <div class="topnav-inner">
+        <span class="brand"><span class="brand-mark" aria-hidden="true">C</span>Cowork Booking</span>
+        <span class="topnav-right">Access</span>
+      </div>
+    </header>
     {% endblock %}
     {% block content %}{% endblock %}
   </body>

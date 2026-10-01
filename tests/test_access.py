@@ -301,3 +301,42 @@ def test_axs_r19_test_clock_off_unless_flag_true(env, client):
     assert client.post("/_test/clock", json={"now": "2026-10-07T09:00:00+07:00"}).status_code == 404
     health = client.get("/health")
     assert health.status_code == 200 and set(health.get_json()) == {"status", "revision"}
+
+
+# ---- Page states (m8 UX) ----
+
+
+def test_axs_r10_ticket_state_line_follows_window_and_status(client):
+    url = issue(client).get_json()["ticket_url"]
+    states = [
+        ("2026-10-05T11:00:00+07:00", "Valid only in this window"),
+        ("2026-10-07T09:00:00+07:00", "Open now"),
+        ("2026-10-07T10:30:00+07:00", "This code no longer opens the door"),
+    ]
+    for now, line in states:
+        set_clock(client, now)
+        page = ticket_page(client, url).get_data(as_text=True)
+        assert line in page and "Wed 7 Oct 2026" in page and "1 h 30 min" in page
+    assert "Show the code or QR" not in page and "Anyone with this link" not in page
+    client.post("/grants/BK-7KQ2M9/revoke", headers=API)
+    page = ticket_page(client, url).get_data(as_text=True)
+    assert "No longer valid" in page and "Show the code or QR" not in page
+    missing = client.get("/t/AAAAAAAAAAAAAAAAAAAAAA")
+    assert missing.status_code == 404 and "This page does not exist" in missing.get_data(as_text=True)
+
+
+def test_axs_r10_checked_in_ticket_says_reentry_until_end(client):
+    body = issue(client).get_json()
+    select_room(client, 1)
+    set_clock(client, "2026-10-07T09:05:00+07:00")
+    scan(client, body["ticket_code"])
+    page = ticket_page(client, body["ticket_url"]).get_data(as_text=True)
+    assert 'data-status="checked_in">Checked in<' in page and "re-entry until 10:30" in page
+
+
+def test_duration_wording():
+    from datetime import datetime, timedelta
+
+    start = datetime(2026, 10, 7, 9, 0)
+    assert [access.duration(start, start + timedelta(minutes=m)) for m in (30, 60, 90, 240)] == [
+        "30 min", "1 h", "1 h 30 min", "4 h"]

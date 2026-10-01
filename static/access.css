@@ -1,0 +1,49 @@
+/* Access-only styles on top of the shared style.css (DESIGN.md 8.5 e-ticket, 8.6 kiosk). */
+
+/* ---- E-ticket: a boarding pass ---- */
+.ticket-wrap { max-width: 560px; margin: 0 auto; }
+.ticket { max-width: none; }
+.ticket-top { padding: var(--sp-6) var(--sp-6) var(--sp-5); }
+.ticket-head { align-items: center; margin-bottom: var(--sp-5); }
+.ticket-brand { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-caption); font-weight: 600; }
+.ticket-brand .brand-mark { background: var(--ink); color: var(--on-dark); }
+.ticket-title { font-size: var(--fs-title); letter-spacing: -0.022em; margin: 0; }
+.ticket-room { margin: var(--sp-1) 0 var(--sp-5); color: var(--muted); font-size: var(--fs-callout); }
+.ticket-meta dd { font-size: var(--fs-tagline); letter-spacing: -0.012em; line-height: 1.25; }
+.ticket-length { display: block; margin-top: 2px; font-size: var(--fs-caption); font-weight: 400; letter-spacing: -0.01em; color: var(--muted); }
+.ticket-window {
+  display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-1) var(--sp-4); flex-wrap: wrap;
+  margin: var(--sp-5) 0 0; padding: 12px var(--sp-4); border-radius: var(--r-md); background: var(--parchment);
+  font-size: var(--fs-callout);
+}
+.ticket-window span { color: var(--ink-80); }
+.ticket-divider { margin: var(--sp-2) var(--sp-6); }
+.ticket-divider::before { left: calc(-1 * var(--sp-6) - 13px); }
+.ticket-divider::after { right: calc(-1 * var(--sp-6) - 13px); }
+.ticket-body {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-5);
+  padding: var(--sp-5) var(--sp-6) var(--sp-6); text-align: left;
+}
+.ticket-code-block .eyebrow { margin-bottom: var(--sp-2); }
+.ticket-code { font-size: 44px; letter-spacing: 0.08em; }
+.ticket-hint { margin-top: var(--sp-3); font-size: var(--fs-callout); color: var(--ink-80); }
+/* segno draws 6 px modules with a 4-module quiet zone: keep its own size so edges stay crisp. */
+.ticket-qr { width: auto; height: auto; margin: 0; padding: 0; line-height: 0; overflow: hidden; }
+.ticket-qr svg { width: auto; height: auto; }
+.ticket-ref { display: block; padding: var(--sp-3) var(--sp-6) var(--sp-4); }
+.ticket.is-cancelled .ticket-stamp { top: 50%; transform: translate(-50%, -50%) rotate(-12deg); font-size: 34px; padding: 8px 26px; }
+.ticket-actions { margin-top: var(--sp-5); }
+.ticket-note { max-width: 46ch; margin: var(--sp-4) auto 0; text-align: center; }
+
+@media (max-width: 640px) {
+  .ticket-page { padding: var(--sp-5) var(--gutter); }
+  .ticket-top { padding: var(--sp-5); }
+  .ticket-meta dd { font-size: 18px; }
+  .ticket-divider { margin: var(--sp-2) var(--sp-5); }
+  .ticket-divider::before { left: calc(-1 * var(--sp-5) - 13px); }
+  .ticket-divider::after { right: calc(-1 * var(--sp-5) - 13px); }
+  .ticket-body { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; padding: var(--sp-5); }
+  .ticket-code { font-size: 38px; }
+  .ticket-qr svg { zoom: 1.5; }   /* 9 px modules: still whole pixels */
+  .ticket-ref { padding: var(--sp-3) var(--sp-5) var(--sp-4); }
+}
