@@ -6,10 +6,6 @@
   {% set valid = badge in ("Issued", "Checked in") %}
   <main class="ticket-wrap">
     <article class="ticket{% if badge == 'Cancelled' %} is-cancelled{% elif badge == 'Expired' %} is-expired{% endif %}" aria-labelledby="ticket-title">
-      {# Cancelled is a band across the head of the ticket, never a stamp over the code or the QR. #}
-      {% if badge == "Cancelled" %}
-        <p class="ticket-band"><strong>CANCELLED</strong><span>This code opens no door</span></p>
-      {% endif %}
       <div class="ticket-top">
         <div class="ticket-head">
           <span class="ticket-brand"><span class="brand-mark" aria-hidden="true">C</span>Cowork Booking</span>
@@ -35,6 +31,11 @@
       </div>
       <div class="ticket-divider" aria-hidden="true"></div>
       <div class="ticket-body">
+        {# The CANCELLED band leads the code half of the ticket (AXS-R10), right above the code and the QR,
+           never drawn over them: both stay readable for support. #}
+        {% if badge == "Cancelled" %}
+          <p class="ticket-band"><strong>CANCELLED</strong><span>This code opens no door</span></p>
+        {% endif %}
         <div class="ticket-code-block">
           <p class="eyebrow">Ticket code</p>
           <p class="ticket-code" data-ticket-code="{{ code }}">{{ code }}</p>

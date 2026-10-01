@@ -21,24 +21,24 @@
 .ticket-divider::before { left: calc(-1 * var(--sp-6) - 13px); }
 .ticket-divider::after { right: calc(-1 * var(--sp-6) - 13px); }
 .ticket-body {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-5);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-5) var(--sp-6);
   padding: var(--sp-5) var(--sp-6) var(--sp-6); text-align: left;
 }
 .ticket-code-block .eyebrow { margin-bottom: var(--sp-2); }
-.ticket-code { font-size: 44px; letter-spacing: 0.08em; }
+.ticket-code { font-size: 40px; letter-spacing: 0.06em; }  /* leaves a clear gap to the QR at 560 px */
 .ticket-hint { margin-top: var(--sp-3); font-size: var(--fs-callout); color: var(--ink-80); }
 /* segno draws 6 px modules with a 4-module quiet zone: keep its own size so edges stay crisp. */
 .ticket-qr { width: auto; height: auto; margin: 0; padding: 0; line-height: 0; overflow: hidden; }
 .ticket-qr svg { width: auto; height: auto; }
 .ticket-ref { display: block; padding: var(--sp-3) var(--sp-6) var(--sp-4); }
 /* Ended tickets: the code stays legible for support, the QR stops inviting a scan.
-   Cancelled says so in a band across the head; nothing is drawn over the code or the QR. */
+   Cancelled says so in a band right above the code and the QR; nothing is drawn over them. */
 .ticket.is-expired .ticket-qr, .ticket.is-cancelled .ticket-qr { opacity: 0.16; }
 .ticket.is-expired .ticket-code, .ticket.is-cancelled .ticket-code { opacity: 0.4; color: var(--muted); }
 .ticket.is-cancelled .ticket-code { text-decoration: line-through; text-decoration-thickness: 3px; }
 .ticket-band {
-  display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-1) var(--sp-4); flex-wrap: wrap;
-  margin: 0; padding: 14px var(--sp-6); background: var(--ink); color: var(--on-dark); font-size: var(--fs-callout);
+  grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-1) var(--sp-4); flex-wrap: wrap;
+  margin: 0; padding: 14px var(--sp-4); border-radius: var(--r-md); background: var(--ink); color: var(--on-dark); font-size: var(--fs-callout);
 }
 .ticket-band strong { font-size: var(--fs-tagline); font-weight: 700; letter-spacing: 0.16em; line-height: 1.1; }
 .ticket-band span { color: var(--on-dark-muted); }
@@ -131,7 +131,7 @@
 @media (max-width: 640px) {
   .ticket-page { padding: var(--sp-5) var(--gutter); }
   .ticket-top, .notfound .ticket-top { padding: var(--sp-5); }
-  .ticket-band { padding: 12px var(--sp-5); }
+  .ticket-band { justify-content: center; text-align: center; padding: 12px var(--sp-4); }
   .ticket-meta dd, .ticket-window strong { font-size: 18px; }
   .ticket-window { padding: 12px var(--sp-4); }
   .ticket-divider { margin: var(--sp-2) var(--sp-5); }
@@ -163,8 +163,8 @@
 @media print {
   /* Notches are cut-outs on screen; on paper they read as stray circles. */
   .ticket-divider::before, .ticket-divider::after { display: none; }
-  /* Browsers drop background fills by default when printing: the band becomes black text over a heavy rule. */
-  .ticket-band { background: none; color: #000; border-bottom: 3px solid #000; }
+  /* Browsers drop background fills by default when printing: the band becomes black text in a heavy frame. */
+  .ticket-band { background: none; color: #000; border: 3px solid #000; }
   .ticket-band span { color: #000; }
   .ticket-brand .brand-mark { background: none; color: #000; border: 1.5px solid #000; }
 }
