@@ -161,3 +161,90 @@ button:hover {
   height: 1em;
   min-width: 2px;
 }
+/* Access: kiosk results and the e-ticket. */
+select {
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+}
+
+.scan-result {
+  font-size: 1.6rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  border-radius: 6px;
+  border: 2px solid var(--busy);
+  color: var(--busy);
+}
+
+.scan-result.result-ok {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--ok);
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.badge-revoked {
+  border-color: var(--busy);
+  color: var(--busy);
+}
+
+.ticket .brand {
+  font-weight: 600;
+  margin: 0;
+}
+
+.ticket-credential {
+  position: relative;
+  display: inline-block;
+  text-align: center;
+}
+
+.ticket-code {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  margin: 0.5rem 0;
+}
+
+.ticket-credential.is-cancelled .ticket-code,
+.ticket-credential.is-cancelled .ticket-qr {
+  opacity: 0.25;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--busy);
+  transform: rotate(-12deg);
+}
+
+.small {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+@media print {
+  body {
+    max-width: none;
+    padding: 0;
+  }
+  .hint {
+    display: none;
+  }
+  .ticket {
+    page-break-inside: avoid;
+  }
+}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Check-in kiosk{% endblock %}
+{% block content %}
+  <h1>Check-in kiosk</h1>
+  <p class="hint">The door lock is mocked: an ok result means the scan was accepted, not that a door opened.</p>
+
+  {% for note in notes %}<p class="message">{{ note }}</p>{% endfor %}
+
+  {% if not rooms %}
+    <p class="message">No rooms yet: a room appears after its first ticket is issued</p>
+  {% else %}
+    <form method="post" action="/checkin">
+      <label for="space_id">Room</label>
+      <select id="space_id" name="space_id">
+        {% for room in rooms %}
+          <option value="{{ room.id }}"{% if selected and room.id == selected.id %} selected{% endif %}>{{ room.label }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Select room</button>
+    </form>
+
+    {% if selected %}
+      <h2 data-selected-space-id="{{ selected.id }}">{{ selected.label }}</h2>
+      {% for result, reason in results %}
+        <div class="scan-result result-{{ result }}" data-result="{{ result }}">
+          <strong>{{ result }}</strong> — {{ reason }}
+          <span class="hint">at {{ selected.label }}</span>
+        </div>
+      {% endfor %}
+      <form method="post" action="/checkin">
+        <label for="code">Ticket code</label>
+        <input id="code" name="code" autofocus autocomplete="off" placeholder="XXXX-XXXX">
+        <button type="submit">Check in</button>
+      </form>
+
+      <h2>Last 10 scans at this room</h2>
+      {% if scans %}
+        <ul class="list">
+          {% for s in scans %}
+            <li data-scan-result="{{ s.result }}" data-scan-last4="{{ s.last4 }}">{{ s.time }} · ••••-{{ s.last4 }} · {{ s.result }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="hint">No scans yet.</p>
+      {% endif %}
+    {% else %}
+      <p class="message">Select the room first</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}
