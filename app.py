@@ -80,7 +80,9 @@ def get_connection(database_url: str) -> psycopg.Connection:
             f"{error}\n"
             "Is Postgres running? Try: docker compose up db -d"
         ) from None
-    conn.execute(SCHEMA)
+    with conn.transaction():
+        conn.execute("SELECT pg_advisory_xact_lock(8003)")  # two workers start at once
+        conn.execute(SCHEMA)
     return conn
 
 
